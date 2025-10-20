@@ -228,6 +228,27 @@ class FirebaseManager:
             logger.error(f"Error al obtener pedidos: {e}")
             return []
 
+    def get_orders_in_date_range(self, start_date, end_date):
+        """Fetches completed orders within a specific date range."""
+        try:
+            query = self.db.collection('orders').where(
+                filter=firestore.FieldFilter('status', '==', 'completed')
+            ).where(
+                filter=firestore.FieldFilter('completed_at', '>=', start_date)
+            ).where(
+                filter=firestore.FieldFilter('completed_at', '<', end_date)
+            )
+            docs = query.stream()
+            orders = []
+            for doc in docs:
+                order = doc.to_dict()
+                order['id'] = doc.id
+                orders.append(order)
+            return orders
+        except Exception as e:
+            logger.error(f"Error fetching orders in date range: {e}")
+            return[]
+
     def cancel_order(self, order_id):
         try:
             self.db.collection('orders').document(order_id).delete()
@@ -283,4 +304,3 @@ class FirebaseManager:
         except Exception as e:
             logger.error(f"Error al eliminar proveedor: {e}")
             raise
-
