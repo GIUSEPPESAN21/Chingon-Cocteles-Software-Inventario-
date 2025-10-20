@@ -27,7 +27,7 @@ except ImportError as e:
 # --- CONFIGURACIÓN DE PÁGINA Y ESTILOS ---
 st.set_page_config(
     page_title="OSIRIS by SAVA & Chingon",
-    page_icon="[https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true](https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true)",
+    page_icon="https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true",
     layout="wide"
 )
 
@@ -104,7 +104,7 @@ def send_whatsapp_alert(message):
         st.error(f"Error al enviar alerta de Twilio: {e}", icon="🚨")
 
 # --- NAVEGACIÓN PRINCIPAL (SIDEBAR) ---
-st.sidebar.image("[https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true](https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true)", width=150)
+st.sidebar.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", width=150)
 st.sidebar.markdown('<h1 style="text-align: center; font-size: 2.2rem; margin-top: -20px;">OSIRIS</h1>', unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; margin-top: -15px;'>by <strong>SAVA</strong> for <strong>Chingon</strong></p>", unsafe_allow_html=True)
 
@@ -143,7 +143,7 @@ if st.session_state.page == "🏠 Inicio":
     # Using columns for better layout control
     col_img, col_title = st.columns([1, 5])
     with col_img:
-        st.image("[https://cdn-icons-png.flaticon.com/512/8128/8128087.png](https://cdn-icons-png.flaticon.com/512/8128/8128087.png)", width=120)
+        st.image("https://cdn-icons-png.flaticon.com/512/8128/8128087.png", width=120)
     with col_title:
         st.markdown('<h1 class="main-header" style="text-align: left; margin-top: 20px;">Bienvenido a OSIRIS</h1>', unsafe_allow_html=True)
         st.subheader("La solución de gestión de inventario inteligente de SAVA para Chingon")
