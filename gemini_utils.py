@@ -81,7 +81,32 @@ class GeminiUtils:
 
         prompt += """
         **Tu Tarea:**
-        Basado en los datos de ventas de hoy, escribe un reporte conciso y accionable en formato Markdown.
+        Basado en los datos de ventas de hoy, escribe un reporte conciso y accionable en formato Markdown. El reporte debe incluir:
+        1.  Un **Resumen Ejecutivo** breve.
+        2.  Una lista de **Observaciones Clave** (2-3 puntos).
+        3.  Una lista de **Recomendaciones Estratégicas** (2-3 puntos).
+        4.  Al final del todo, una firma con los datos exactos que se proporcionan a continuación.
+
+        **Formato de Salida Esperado (Usa este formato Markdown exacto):**
+        
+        ### 📈 Reporte de Desempeño Diario
+        
+        #### Resumen Ejecutivo
+        * [Tu resumen conciso del rendimiento del día aquí]
+        
+        #### Observaciones Clave
+        * [Observación 1 sobre los productos más vendidos o patrones]
+        * [Observación 2]
+        
+        #### Recomendaciones Estratégicas
+        * [Recomendación 1 clara y práctica]
+        * [Recomendación 2]
+        
+        ---
+        
+        **Elaborado por:**
+        Joseph Javier Sánchez Acuña
+        CEO - SAVA SOFTWARE FOR ENGINEERING
         """
         
         try:
@@ -134,4 +159,3 @@ class GeminiUtils:
         except Exception as e:
             logger.error(f"Error crítico durante el análisis de imagen con Gemini: {e}")
             return json.dumps({"error": f"No se pudo contactar al servicio de IA: {str(e)}"})
-
