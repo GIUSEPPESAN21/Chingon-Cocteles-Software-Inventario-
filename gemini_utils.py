@@ -1,37 +1,35 @@
 import google.generativeai as genai
 import logging
-from PIL import Image
 import streamlit as st
-import json
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class GeminiTextUtils:
+class GeminiUtils:
     def __init__(self):
+        """
+        Initializes the Gemini client for text generation.
+        """
         self.api_key = st.secrets.get('GEMINI_API_KEY')
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY no encontrada en los secrets de Streamlit")
+            raise ValueError("GEMINI_API_KEY not found in Streamlit secrets")
         
         genai.configure(api_key=self.api_key)
         self.model = self._get_available_model()
     
     def _get_available_model(self):
         """
-        Intenta inicializar el mejor modelo de Gemini disponible de la lista proporcionada.
+        Initializes the best available Gemini model from a prioritized list.
         """
-        # Lista de modelos priorizada, AHORA INCLUYE el modelo experimental.
         model_candidates = [
-            "gemini-2.0-flash-exp",       # Modelo experimental más reciente (prioridad 1)
-            "gemini-1.5-flash-latest",    # Versión más reciente y rápida de 1.5
-            "gemini-1.5-pro-latest",      # Versión Pro más reciente de 1.5
-            "gemini-1.5-flash",           # Modelo Flash básico
-            "gemini-1.5-pro",             # Modelo Pro básico
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro-latest",
         ]
         
         for model_name in model_candidates:
             try:
+                # Configuration for text-only generation
                 model = genai.GenerativeModel(model_name)
                 logger.info(f"✅ Text model '{model_name}' initialized successfully.")
                 return model
@@ -105,5 +103,3 @@ class GeminiTextUtils:
         except Exception as e:
             logger.error(f"Error crítico durante la generación de reporte con Gemini: {e}")
             return f"### Error\nNo se pudo generar el reporte: {str(e)}"
-
-    
