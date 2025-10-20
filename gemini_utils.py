@@ -19,17 +19,15 @@ class GeminiUtils:
             raise ValueError("GEMINI_API_KEY no encontrada en los secrets de Streamlit")
 
         genai.configure(api_key=self.api_key)
-        # This will find the best available multimodal model for both text and vision
         self.model = self._get_available_model()
 
     def _get_available_model(self):
         """
         Intenta inicializar el mejor modelo de Gemini disponible de la lista proporcionada.
         """
-        # Lista de modelos priorizada, AHORA INCLUYE el modelo experimental.
         model_candidates = [
-            "gemini-1.5-flash-latest",    # Versión más reciente y rápida de 1.5
-            "gemini-1.5-pro-latest",      # Versión Pro más reciente de 1.5
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-pro-latest",
         ]
 
         for model_name in model_candidates:
@@ -39,13 +37,12 @@ class GeminiUtils:
                 return model
             except google.api_core.exceptions.NotFound:
                  logger.warning(f"⚠️ Modelo '{model_name}' no encontrado (NotFound).")
-                 continue # Specific handling for NotFound
+                 continue
             except Exception as e:
                 logger.warning(f"⚠️ Modelo '{model_name}' no disponible o no compatible: {e}")
                 continue
 
-        # If loop completes without returning, no model was initialized
-        raise Exception("No se pudo inicializar ningún modelo de Gemini compatible de la lista. Verifica tu API Key y los nombres de los modelos.")
+        raise Exception("No se pudo inicializar ningún modelo de Gemini compatible de la lista.")
 
 
     def generate_daily_report(self, orders: list):
@@ -53,9 +50,8 @@ class GeminiUtils:
         Generates a daily sales report as a JSON string with recommendations.
         """
         if not self.model:
-            return json.dumps({"error": "El modelo de texto no está inicializado."}) # Return JSON error
+            return json.dumps({"error": "El modelo de texto no está inicializado."})
         if not orders:
-            # Return a JSON structure indicating no data, not just a string
             return json.dumps({
                 "resumen_ejecutivo": "No hubo ventas completadas hoy.",
                 "observaciones_clave": [],
@@ -67,7 +63,6 @@ class GeminiUtils:
                 "metadata": {"status": "no_data"}
             })
 
-
         total_revenue = sum(o.get('price', 0) for o in orders if isinstance(o.get('price'), (int, float)))
         total_orders = len(orders)
 
@@ -76,12 +71,11 @@ class GeminiUtils:
             for item in order.get('ingredients', []):
                 item_name = item.get('name', 'N/A')
                 quantity = item.get('quantity', 0)
-                if isinstance(quantity, (int, float)) and quantity > 0: # Ensure valid quantity
+                if isinstance(quantity, (int, float)) and quantity > 0:
                     item_sales[item_name] = item_sales.get(item_name, 0) + quantity
 
         top_selling_items = sorted(item_sales.items(), key=lambda x: x[1], reverse=True)
 
-        # Build prompt requesting JSON output
         prompt = f"""
         **Actúa como un analista de negocios experto para una tienda.**
 
