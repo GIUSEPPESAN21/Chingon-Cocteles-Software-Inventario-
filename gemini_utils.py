@@ -4,6 +4,7 @@ from PIL import Image
 import streamlit as st
 import json
 from datetime import datetime, timezone
+import google.api_core.exceptions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,17 +28,12 @@ class GeminiUtils:
         """
         # Lista de modelos priorizada, AHORA INCLUYE el modelo experimental.
         model_candidates = [
-            "gemini-2.0-flash-exp",       # Modelo experimental más reciente (prioridad 1)
             "gemini-1.5-flash-latest",    # Versión más reciente y rápida de 1.5
             "gemini-1.5-pro-latest",      # Versión Pro más reciente de 1.5
-            "gemini-1.5-flash",           # Modelo Flash básico
-            "gemini-1.5-pro",             # Modelo Pro básico
         ]
 
         for model_name in model_candidates:
             try:
-                # Check model existence and capability before full initialization if possible
-                # For now, rely on try-except with GenerativeModel
                 model = genai.GenerativeModel(model_name)
                 logger.info(f"✅ Modelo de Gemini '{model_name}' inicializado con éxito.")
                 return model
