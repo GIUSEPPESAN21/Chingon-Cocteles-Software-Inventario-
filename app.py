@@ -14,10 +14,10 @@ import numpy as np
 # --- Importaciones de utilidades y modelos ---
 try:
     from firebase_utils import FirebaseManager
+    from gemini_utils import GeminiUtils # Import corrected utility
     from barcode_manager import BarcodeManager 
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
     from twilio.rest import Client
-    from gemini_text_utils import GeminiTextUtils # Import new text generation utility
     IS_TWILIO_AVAILABLE = True
 except ImportError as e:
     st.error(f"Error de importación: {e}. Asegúrate de que todas las dependencias estén instaladas.")
@@ -48,20 +48,20 @@ def initialize_services():
     try:
         firebase_handler = FirebaseManager()
         barcode_handler = BarcodeManager(firebase_handler)
-        gemini_text_handler = GeminiTextUtils()
+        gemini_handler = GeminiUtils()
         
         twilio_client = None
         if IS_TWILIO_AVAILABLE and all(k in st.secrets for k in ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]):
             twilio_client = Client(st.secrets["TWILIO_ACCOUNT_SID"], st.secrets["TWILIO_AUTH_TOKEN"])
             
-        return firebase_handler, gemini_text_handler, twilio_client, barcode_handler
+        return firebase_handler, gemini_handler, twilio_client, barcode_handler
     except Exception as e:
         st.error(f"**Error Crítico de Inicialización:** {e}")
         return None, None, None, None
 
-firebase, gemini_text, twilio_client, barcode_manager = initialize_services()
+firebase, gemini, twilio_client, barcode_manager = initialize_services()
 
-if not all([firebase, gemini_text, barcode_manager]):
+if not all([firebase, gemini, barcode_manager]):
     st.stop()
 
 # --- Funciones de Estado de Sesión ---
@@ -628,7 +628,7 @@ elif st.session_state.page == "📈 Reporte Diario":
                 if not completed_orders_today:
                     st.warning("No hay ventas completadas hoy para generar un reporte.")
                 else:
-                    report = gemini_text.generate_daily_report(completed_orders_today)
+                    report = gemini.generate_daily_report(completed_orders_today)
                     st.markdown(report)
 
             except Exception as e:
@@ -681,3 +681,4 @@ elif st.session_state.page == "🏢 Acerca de SAVA":
         st.info("**Jaime Eduardo Aragon Campo**\n\n*Director de Operaciones*")
     with c3:
         st.info("**Joseph Javier Sanchez Acuña**\n\n*Director de Proyecto*")
+
