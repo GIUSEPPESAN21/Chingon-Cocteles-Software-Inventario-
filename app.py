@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 HI-DRIVE: Sistema Avanzado de Gestión de Inventario con IA
-Versión 2.6 - Ajustes de Interfaz
+Versión 2.7 - Ajustes de Interfaz y Logos
 """
 import streamlit as st
 from PIL import Image
@@ -104,7 +104,9 @@ def send_whatsapp_alert(message):
         st.error(f"Error al enviar alerta de Twilio: {e}", icon="🚨")
 
 # --- NAVEGACIÓN PRINCIPAL (SIDEBAR) ---
-st.sidebar.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", width=150)
+col1, col2, col3 = st.sidebar.columns([1,6,1])
+with col2:
+    st.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", width=150)
 
 st.sidebar.markdown('<h1 style="text-align: center; font-size: 2.2rem; margin-top: -20px;">OSIRIS</h1>', unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; margin-top: -15px;'>by <strong>SAVA</strong> for <strong>Chingon</strong></p>", unsafe_allow_html=True)
@@ -996,13 +998,8 @@ elif st.session_state.page == "📈 Reporte Diario":
 
 
 elif st.session_state.page == "🏢 Acerca de SAVA":
-    # Layout enhancements for the About page
-    col_img_about, col_text_about = st.columns([1, 4])
-    with col_img_about:
-        st.image("https://cdn-icons-png.flaticon.com/512/8128/8128087.png", width=100)
-    with col_text_about:
-        st.title("Sobre SAVA SOFTWARE")
-        st.subheader("Innovación y Tecnología para el Retail del Futuro")
+    st.title("Sobre SAVA SOFTWARE")
+    st.subheader("Innovación y Tecnología para el Retail del Futuro")
 
     st.markdown("""
     En **SAVA**, somos pioneros en el desarrollo de soluciones de software que fusionan la inteligencia artificial
