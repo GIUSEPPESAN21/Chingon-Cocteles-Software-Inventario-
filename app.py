@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 HI-DRIVE: Sistema Avanzado de Gestión de Inventario con IA
-Versión 2.2 - Adaptado para Chingon (Reporte Estructurado)
+Versión 2.3 - Mejoras de Fluidez y Corrección de Errores
 """
 import streamlit as st
 from PIL import Image
@@ -88,6 +88,35 @@ def init_session_state():
 init_session_state()
 
 
+# --- FUNCIONES DE CACHÉ DE DATOS ---
+@st.cache_data(ttl=60)
+def get_cached_inventory():
+    """Obtiene y cachea la lista de inventario por 60 segundos."""
+    try:
+        return firebase.get_all_inventory_items()
+    except Exception as e:
+        st.error(f"Error al cargar inventario: {e}")
+        return []
+
+@st.cache_data(ttl=60)
+def get_cached_orders(status=None):
+    """Obtiene y cachea los pedidos por 60 segundos."""
+    try:
+        return firebase.get_orders(status=status)
+    except Exception as e:
+        st.error(f"Error al cargar pedidos: {e}")
+        return []
+
+@st.cache_data(ttl=60)
+def get_cached_suppliers():
+    """Obtiene y cachea los proveedores por 60 segundos."""
+    try:
+        return firebase.get_all_suppliers()
+    except Exception as e:
+        st.error(f"Error al cargar proveedores: {e}")
+        return []
+
+
 # --- LÓGICA DE NOTIFICACIONES ---
 def send_whatsapp_alert(message):
     # Check if client was successfully initialized
@@ -120,8 +149,8 @@ PAGES = {
     "🏢 Acerca de SAVA": "building"
 }
 for page_name, icon in PAGES.items():
-    # Use width='stretch' instead of use_container_width=True
-    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", width='stretch', type="primary" if st.session_state.page == page_name else "secondary"):
+    # Use a consistent button style for navigation
+    if st.sidebar.button(f"{page_name}", use_container_width=True, type="primary" if st.session_state.page == page_name else "secondary"):
         st.session_state.page = page_name
         # Reset specific states when changing pages if needed
         st.session_state.editing_item_id = None
@@ -155,35 +184,29 @@ if st.session_state.page == "🏠 Inicio":
     st.markdown("---")
 
     st.subheader("Resumen del Negocio en Tiempo Real")
-    items = []
-    orders = []
-    suppliers = []
-    try:
-        items = firebase.get_all_inventory_items()
-        orders = firebase.get_orders(status=None) # Fetch all orders initially
-        suppliers = firebase.get_all_suppliers()
-        total_inventory_value = sum(item.get('quantity', 0) * item.get('purchase_price', 0) for item in items if isinstance(item.get('quantity'), (int, float)) and isinstance(item.get('purchase_price'), (int, float)))
-        processing_orders_count = len([o for o in orders if o.get('status') == 'processing'])
+    # Use cached data
+    items = get_cached_inventory()
+    orders = get_cached_orders()
+    suppliers = get_cached_suppliers()
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("📦 Artículos Únicos", len(items))
-        c2.metric("💰 Valor del Inventario", f"${total_inventory_value:,.2f}")
-        c3.metric("⏳ Pedidos en Proceso", processing_orders_count)
-        c4.metric("👥 Proveedores", len(suppliers))
-    except Exception as e:
-        st.error(f"No se pudieron cargar las estadísticas: {e}")
-        # Assign empty lists if loading failed to prevent errors later
-        items, orders, suppliers = [], [], []
+    total_inventory_value = sum(item.get('quantity', 0) * item.get('purchase_price', 0) for item in items if isinstance(item.get('quantity'), (int, float)) and isinstance(item.get('purchase_price'), (int, float)))
+    processing_orders_count = len([o for o in orders if o.get('status') == 'processing'])
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("📦 Artículos Únicos", len(items))
+    c2.metric("💰 Valor del Inventario", f"${total_inventory_value:,.2f}")
+    c3.metric("⏳ Pedidos en Proceso", processing_orders_count)
+    c4.metric("👥 Proveedores", len(suppliers))
     st.markdown("---")
 
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Acciones Rápidas")
-        if st.button("🛰️ Usar Escáner USB", width='stretch'):
+        if st.button("🛰️ Usar Escáner USB", use_container_width=True):
              st.session_state.page = "🛰️ Escáner USB"; st.rerun()
-        if st.button("📝 Crear Nuevo Pedido", width='stretch'):
+        if st.button("📝 Crear Nuevo Pedido", use_container_width=True):
             st.session_state.page = "🛒 Pedidos"; st.rerun()
-        if st.button("➕ Añadir Artículo", width='stretch'):
+        if st.button("➕ Añadir Artículo", use_container_width=True):
             st.session_state.page = "📦 Inventario"; st.rerun()
 
     with col2:
@@ -223,7 +246,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
             with st.form("usb_inventory_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Código de Barras", key="usb_barcode_inv_input",
                                               help="Haz clic aquí antes de escanear.")
-                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True) # Use standard width param
+                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True) 
                 if submitted and barcode_input:
                     st.session_state.usb_scan_result = barcode_manager.handle_inventory_scan(barcode_input)
                     # No rerun here, let the result display below
@@ -370,6 +393,7 @@ elif st.session_state.page == "📦 Inventario":
     if st.session_state.editing_item_id:
         item_id_to_edit = st.session_state.editing_item_id
         try:
+            # Not using cache here to ensure we edit the most recent data
             item_to_edit = firebase.get_inventory_item_details(item_id_to_edit)
             if not item_to_edit:
                 st.error(f"No se encontró el artículo con ID {item_id_to_edit} para editar.")
@@ -378,7 +402,7 @@ elif st.session_state.page == "📦 Inventario":
             else:
                  st.subheader(f"✏️ Editando: {item_to_edit.get('name', 'N/A')}")
                  with st.form("edit_item_form"):
-                    suppliers = firebase.get_all_suppliers()
+                    suppliers = get_cached_suppliers()
                     supplier_map = {s.get('name', f"ID: {s.get('id')}"): s.get('id') for s in suppliers}
                     supplier_names = [""] + list(supplier_map.keys())
                     current_supplier_name = item_to_edit.get('supplier_name')
@@ -431,81 +455,75 @@ elif st.session_state.page == "📦 Inventario":
         tab1, tab2 = st.tabs(["📋 Inventario Actual", "➕ Añadir Artículo"])
         with tab1:
             search_query = st.text_input(" Buscar por Nombre o Código/ID", placeholder="Ej: Laptop, 750100100200")
-            try:
-                items = firebase.get_all_inventory_items()
+            items = get_cached_inventory()
 
-                if search_query:
-                    search_query_lower = search_query.lower()
-                    filtered_items = [
-                        item for item in items if
-                        (search_query_lower in item.get('name', '').lower()) or
-                        (search_query_lower in item.get('id', '').lower())
-                    ]
-                else:
-                    filtered_items = items
+            if search_query:
+                search_query_lower = search_query.lower()
+                filtered_items = [
+                    item for item in items if
+                    (search_query_lower in item.get('name', '').lower()) or
+                    (search_query_lower in item.get('id', '').lower())
+                ]
+            else:
+                filtered_items = items
 
-                if not filtered_items:
-                    st.info("No se encontraron productos." if not search_query else "No se encontraron productos que coincidan con la búsqueda.")
-                else:
-                    # Display items in containers
-                    for item in filtered_items:
-                        item_id = item.get('id', 'N/A')
-                        with st.container(border=True):
-                            c1, c2, c3, c4 = st.columns([4, 2, 2, 1])
-                            c1.markdown(f"**{item.get('name', 'N/A')}**")
-                            c1.caption(f"ID: {item_id}")
-                            c2.metric("Stock", item.get('quantity', 0))
-                            c3.metric("Precio Venta", f"${item.get('sale_price', 0):,.2f}")
-                            if c4.button("✏️", key=f"edit_{item_id}", help="Editar este artículo"):
-                                st.session_state.editing_item_id = item_id
-                                st.rerun() # Rerun to switch to edit mode
-            except Exception as view_e:
-                 st.error(f"Error al cargar el inventario: {view_e}")
-
+            if not filtered_items:
+                st.info("No se encontraron productos." if not search_query else "No se encontraron productos que coincidan con la búsqueda.")
+            else:
+                # Display items in containers
+                for item in filtered_items:
+                    item_id = item.get('id', 'N/A')
+                    with st.container(border=True):
+                        c1, c2, c3, c4 = st.columns([4, 2, 2, 1])
+                        c1.markdown(f"**{item.get('name', 'N/A')}**")
+                        c1.caption(f"ID: {item_id}")
+                        c2.metric("Stock", item.get('quantity', 0))
+                        c3.metric("Precio Venta", f"${item.get('sale_price', 0):,.2f}")
+                        if c4.button("✏️", key=f"edit_{item_id}", help="Editar este artículo"):
+                            st.session_state.editing_item_id = item_id
+                            st.rerun() # Rerun to switch to edit mode
+            
         with tab2:
             st.subheader("Añadir Nuevo Artículo al Inventario")
-            try:
-                suppliers = firebase.get_all_suppliers()
-                supplier_map = {s.get('name', f"ID: {s.get('id')}"): s.get('id') for s in suppliers}
-                supplier_names = [""] + list(supplier_map.keys()) # Add empty option
+            suppliers = get_cached_suppliers()
+            supplier_map = {s.get('name', f"ID: {s.get('id')}"): s.get('id') for s in suppliers}
+            supplier_names = [""] + list(supplier_map.keys()) # Add empty option
 
-                with st.form("add_item_form_new"):
-                    custom_id = st.text_input("ID Personalizado (SKU)", help="Debe ser único")
-                    name = st.text_input("Nombre del Artículo")
-                    quantity = st.number_input("Cantidad Inicial", min_value=0, step=1, value=1)
-                    purchase_price = st.number_input("Costo de Compra ($)", min_value=0.0, format="%.2f", value=0.0)
-                    sale_price = st.number_input("Precio de Venta ($)", min_value=0.0, format="%.2f", value=0.0)
-                    min_stock_alert = st.number_input("Umbral de Alerta", min_value=0, step=1, value=0)
-                    selected_supplier_name = st.selectbox("Proveedor", supplier_names)
+            with st.form("add_item_form_new"):
+                custom_id = st.text_input("ID Personalizado (SKU)", help="Debe ser único")
+                name = st.text_input("Nombre del Artículo")
+                quantity = st.number_input("Cantidad Inicial", min_value=0, step=1, value=1)
+                purchase_price = st.number_input("Costo de Compra ($)", min_value=0.0, format="%.2f", value=0.0)
+                sale_price = st.number_input("Precio de Venta ($)", min_value=0.0, format="%.2f", value=0.0)
+                min_stock_alert = st.number_input("Umbral de Alerta", min_value=0, step=1, value=0)
+                selected_supplier_name = st.selectbox("Proveedor", supplier_names)
 
-                    if st.form_submit_button("Guardar Nuevo Artículo", type="primary", use_container_width=True):
-                        if custom_id and name:
-                             # Check if ID already exists before saving
-                            if firebase.get_inventory_item_details(custom_id):
-                                st.error(f"El ID '{custom_id}' ya existe. Por favor, usa uno diferente.")
-                            else:
-                                supplier_id = supplier_map.get(selected_supplier_name)
-                                data = {
-                                    "name": name,
-                                    "quantity": int(quantity),
-                                    "purchase_price": float(purchase_price),
-                                    "sale_price": float(sale_price),
-                                    "min_stock_alert": int(min_stock_alert),
-                                    "supplier_id": supplier_id,
-                                    "supplier_name": selected_supplier_name if supplier_id else "",
-                                    "updated_at": datetime.now(timezone.utc).isoformat()
-                                }
-                                try:
-                                    firebase.save_inventory_item(data, custom_id, is_new=True)
-                                    st.success(f"Artículo '{name}' guardado con ID: {custom_id}.")
-                                    # Consider adding st.rerun() if you want the form to clear or list to update immediately
-                                except Exception as add_e:
-                                    st.error(f"Error al guardar el nuevo artículo: {add_e}")
+                if st.form_submit_button("Guardar Nuevo Artículo", type="primary", use_container_width=True):
+                    if custom_id and name:
+                            # Check if ID already exists before saving
+                        if firebase.get_inventory_item_details(custom_id):
+                            st.error(f"El ID '{custom_id}' ya existe. Por favor, usa uno diferente.")
                         else:
-                            st.warning("El ID personalizado y el nombre del artículo son obligatorios.")
-            except Exception as sup_e:
-                 st.error(f"Error al cargar proveedores: {sup_e}")
-
+                            supplier_id = supplier_map.get(selected_supplier_name)
+                            data = {
+                                "name": name,
+                                "quantity": int(quantity),
+                                "purchase_price": float(purchase_price),
+                                "sale_price": float(sale_price),
+                                "min_stock_alert": int(min_stock_alert),
+                                "supplier_id": supplier_id,
+                                "supplier_name": selected_supplier_name if supplier_id else "",
+                                "updated_at": datetime.now(timezone.utc).isoformat()
+                            }
+                            try:
+                                firebase.save_inventory_item(data, custom_id, is_new=True)
+                                st.success(f"Artículo '{name}' guardado con ID: {custom_id}.")
+                                # Consider adding st.rerun() if you want the form to clear or list to update immediately
+                            except Exception as add_e:
+                                st.error(f"Error al guardar el nuevo artículo: {add_e}")
+                    else:
+                        st.warning("El ID personalizado y el nombre del artículo son obligatorios.")
+            
 
 elif st.session_state.page == "👥 Proveedores":
     col1, col2 = st.columns([1, 2])
@@ -534,35 +552,28 @@ elif st.session_state.page == "👥 Proveedores":
                     st.warning("El nombre del proveedor es obligatorio.")
     with col2:
         st.subheader("Lista de Proveedores")
-        try:
-            suppliers = firebase.get_all_suppliers()
-            if not suppliers:
-                st.info("No hay proveedores registrados.")
-            else:
-                for s in suppliers:
-                    # Display each supplier in an expander
-                    with st.expander(f"**{s.get('name', 'N/A')}**"):
-                        st.write(f"**Contacto:** {s.get('contact_person', 'N/A')}")
-                        st.write(f"**Email:** {s.get('email', 'N/A')}")
-                        st.write(f"**Teléfono:** {s.get('phone', 'N/A')}")
-                        # Add edit/delete buttons if needed
-                        # if st.button("🗑️", key=f"del_{s.get('id')}", help="Eliminar Proveedor"):
-                        #     try:
-                        #         firebase.delete_supplier(s.get('id'))
-                        #         st.toast(f"Proveedor '{s.get('name')}' eliminado.")
-                        #         st.rerun()
-                        #     except Exception as del_e:
-                        #         st.error(f"Error al eliminar: {del_e}")
-        except Exception as list_sup_e:
-             st.error(f"Error al cargar la lista de proveedores: {list_sup_e}")
-
+        suppliers = get_cached_suppliers()
+        if not suppliers:
+            st.info("No hay proveedores registrados.")
+        else:
+            for s in suppliers:
+                # Display each supplier in an expander
+                with st.expander(f"**{s.get('name', 'N/A')}**"):
+                    st.write(f"**Contacto:** {s.get('contact_person', 'N/A')}")
+                    st.write(f"**Email:** {s.get('email', 'N/A')}")
+                    st.write(f"**Teléfono:** {s.get('phone', 'N/A')}")
+                    # Add edit/delete buttons if needed
+                    # if st.button("🗑️", key=f"del_{s.get('id')}", help="Eliminar Proveedor"):
+                    #     try:
+                    #         firebase.delete_supplier(s.get('id'))
+                    #         st.toast(f"Proveedor '{s.get('name')}' eliminado.")
+                    #         st.rerun()
+                    #     except Exception as del_e:
+                    #         st.error(f"Error al eliminar: {del_e}")
+        
 
 elif st.session_state.page == "🛒 Pedidos":
-    try:
-        items_from_db = firebase.get_all_inventory_items()
-    except Exception as e:
-        st.error(f"Error al cargar artículos de inventario: {e}")
-        items_from_db = [] # Ensure it's a list even on error
+    items_from_db = get_cached_inventory()
 
     col1, col2 = st.columns([2, 3])
     with col1:
@@ -746,51 +757,43 @@ elif st.session_state.page == "🛒 Pedidos":
 
     st.markdown("---")
     st.subheader("⏳ Pedidos en Proceso")
-    try:
-        processing_orders = firebase.get_orders('processing')
-        if not processing_orders:
-            st.info("No hay pedidos en proceso.")
-        else:
-            for order in processing_orders:
-                order_id = order.get('id', 'N/A')
-                with st.expander(f"**{order.get('title', 'N/A')}** - ${order.get('price', 0):,.2f}"):
-                    st.write("Artículos:")
-                    for item in order.get('ingredients', []):
-                        st.write(f"- {item.get('name', 'N/A')} (x{item.get('quantity', 0)})")
-                    c1, c2 = st.columns(2)
-                    if c1.button("✅ Completar Pedido", key=f"comp_{order_id}", type="primary", use_container_width=True):
-                        try:
-                            success, msg, alerts = firebase.complete_order(order_id)
-                            if success:
-                                st.success(msg)
-                                send_whatsapp_alert(f"✅ Pedido Completado: {order.get('title', 'N/A')}")
-                                for alert in alerts: send_whatsapp_alert(f"📉 ALERTA DE STOCK: {alert}")
-                                st.rerun() # Refresh list
-                            else:
-                                st.error(msg)
-                        except Exception as complete_e:
-                             st.error(f"Error al completar pedido: {complete_e}")
+    processing_orders = get_cached_orders('processing')
+    if not processing_orders:
+        st.info("No hay pedidos en proceso.")
+    else:
+        for order in processing_orders:
+            order_id = order.get('id', 'N/A')
+            with st.expander(f"**{order.get('title', 'N/A')}** - ${order.get('price', 0):,.2f}"):
+                st.write("Artículos:")
+                for item in order.get('ingredients', []):
+                    st.write(f"- {item.get('name', 'N/A')} (x{item.get('quantity', 0)})")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ Completar Pedido", key=f"comp_{order_id}", type="primary", use_container_width=True):
+                    try:
+                        success, msg, alerts = firebase.complete_order(order_id)
+                        if success:
+                            st.success(msg)
+                            send_whatsapp_alert(f"✅ Pedido Completado: {order.get('title', 'N/A')}")
+                            for alert in alerts: send_whatsapp_alert(f"📉 ALERTA DE STOCK: {alert}")
+                            st.rerun() # Refresh list
+                        else:
+                            st.error(msg)
+                    except Exception as complete_e:
+                            st.error(f"Error al completar pedido: {complete_e}")
 
-                    if c2.button("❌ Cancelar Pedido", key=f"canc_{order_id}", use_container_width=True):
-                        try:
-                             firebase.cancel_order(order_id)
-                             st.toast(f"Pedido '{order.get('title', 'N/A')}' cancelado.")
-                             st.rerun() # Refresh list
-                        except Exception as cancel_e:
-                             st.error(f"Error al cancelar pedido: {cancel_e}")
+                if c2.button("❌ Cancelar Pedido", key=f"canc_{order_id}", use_container_width=True):
+                    try:
+                            firebase.cancel_order(order_id)
+                            st.toast(f"Pedido '{order.get('title', 'N/A')}' cancelado.")
+                            st.rerun() # Refresh list
+                    except Exception as cancel_e:
+                            st.error(f"Error al cancelar pedido: {cancel_e}")
 
-    except Exception as proc_ord_e:
-        st.error(f"Error al cargar pedidos en proceso: {proc_ord_e}")
-
-
+    
 elif st.session_state.page == "📊 Analítica":
-    try:
-        # Fetch data only once for the page
-        completed_orders = firebase.get_orders('completed')
-        all_inventory_items = firebase.get_all_inventory_items()
-    except Exception as e:
-        st.error(f"No se pudieron cargar los datos para el análisis: {e}")
-        completed_orders, all_inventory_items = [], [] # Default to empty lists on error
+    # Fetch data only once for the page using cache
+    completed_orders = get_cached_orders('completed')
+    all_inventory_items = get_cached_inventory()
 
     if not completed_orders:
         st.info("No hay pedidos completados para generar analíticas.")
@@ -805,7 +808,7 @@ elif st.session_state.page == "📊 Analítica":
             total_cogs = 0
             for o in completed_orders:
                 for ing in o.get('ingredients', []):
-                     # Use get method with default 0 for safety
+                        # Use get method with default 0 for safety
                     purchase_price = ing.get('purchase_price', 0.0)
                     quantity = ing.get('quantity', 0)
                     if isinstance(purchase_price, (int, float)) and isinstance(quantity, (int, float)):
@@ -827,12 +830,12 @@ elif st.session_state.page == "📊 Analítica":
             st.subheader("Tendencia de Ingresos y Beneficios Diarios")
             sales_data = []
             for order in completed_orders:
-                 # Ensure timestamp_obj exists and is valid datetime
+                    # Ensure timestamp_obj exists and is valid datetime
                 ts = order.get('timestamp_obj')
                 if ts and isinstance(ts, datetime):
-                     order_cogs = sum(ing.get('purchase_price', 0.0) * ing.get('quantity', 0) for ing in order.get('ingredients', []))
-                     order_profit = order.get('price', 0.0) - order_cogs
-                     sales_data.append({'Fecha': ts.date(), 'Ingresos': order.get('price', 0.0), 'Beneficios': order_profit})
+                        order_cogs = sum(ing.get('purchase_price', 0.0) * ing.get('quantity', 0) for ing in order.get('ingredients', []))
+                        order_profit = order.get('price', 0.0) - order_cogs
+                        sales_data.append({'Fecha': ts.date(), 'Ingresos': order.get('price', 0.0), 'Beneficios': order_profit})
 
             if sales_data:
                 # Convert to DataFrame and aggregate
