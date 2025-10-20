@@ -133,7 +133,6 @@ PAGES = {
     "🏢 Acerca de SAVA": "building"
 }
 for page_name, icon in PAGES.items():
-    # Use width='stretch' instead of use_container_width=True
     if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", use_container_width=True, type="primary" if st.session_state.page == page_name else "secondary"):
         st.session_state.page = page_name
         # Reset specific states when changing pages if needed
@@ -236,7 +235,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
             with st.form("usb_inventory_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Código de Barras", key="usb_barcode_inv_input",
                                               help="Haz clic aquí antes de escanear.")
-                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True) # Use standard width param
+                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True)
                 if submitted and barcode_input:
                     st.session_state.usb_scan_result = barcode_manager.handle_inventory_scan(barcode_input)
                     # No rerun here, let the result display below
@@ -276,6 +275,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                         try:
                             firebase.save_inventory_item(updated_data, item['id'], is_new=False, details="Actualización vía Escáner USB.")
                             st.success(f"¡'{item.get('name', 'N/A')}' actualizado con éxito!")
+                            st.cache_data.clear()
                             st.session_state.usb_scan_result = None # Clear result after update
                             st.rerun() # Rerun to reflect changes if needed elsewhere or clear form
                         except Exception as update_e:
@@ -306,6 +306,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                             try:
                                 firebase.save_inventory_item(data, barcode, is_new=True, details="Creado vía Escáner USB.")
                                 st.success(f"¡Producto '{name}' guardado!")
+                                st.cache_data.clear()
                                 st.session_state.usb_scan_result = None # Clear result after creation
                                 st.rerun() # Rerun to clear form and potentially update lists
                             except Exception as create_e:
@@ -366,6 +367,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                             send_whatsapp_alert(f"💸 Venta Rápida Procesada: {sale_id} por un total de ${total_sale_price:,.2f}")
                             for alert in alerts: send_whatsapp_alert(f"📉 ALERTA DE STOCK: {alert}")
                             st.session_state.usb_sale_items = [] # Clear sale items
+                            st.cache_data.clear()
                             st.rerun() # Update UI
                         else:
                             st.error(msg)
@@ -1001,66 +1003,63 @@ elif st.session_state.page == "📈 Reporte Diario":
 
                 completed_orders_today = firebase.get_orders_in_date_range(start_of_day, end_of_day)
 
-                if not completed_orders_today:
-                    st.warning("No hay ventas completadas hoy para generar un reporte.")
-                else:
-                    # Request structured data (JSON string) from Gemini
-                    report_json_str = gemini.generate_daily_report(completed_orders_today)
-                    try:
-                        # Attempt to parse the JSON string
-                        report_data = json.loads(report_json_str)
+                # Request structured data (JSON string) from Gemini
+                report_json_str = gemini.generate_daily_report(completed_orders_today)
+                try:
+                    # Attempt to parse the JSON string
+                    report_data = json.loads(report_json_str)
 
-                        # Check if it's the error structure
-                        if isinstance(report_data, dict) and "error" in report_data:
-                            st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
-                            # Optionally show raw response if available
-                            raw = report_data.get('raw_response')
-                            if raw:
-                                st.caption(f"Respuesta cruda: {raw}")
-                        # Check for expected keys
-                        elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
-                             # Build the report using Streamlit components for better formatting
-                            st.markdown("### 📈 Reporte de Desempeño Diario")
-                            st.markdown("---")
+                    # Check if it's the error structure
+                    if isinstance(report_data, dict) and "error" in report_data:
+                        st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
+                        # Optionally show raw response if available
+                        raw = report_data.get('raw_response')
+                        if raw:
+                            st.caption(f"Respuesta cruda: {raw}")
+                    # Check for expected keys
+                    elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
+                         # Build the report using Streamlit components for better formatting
+                        st.markdown("### 📈 Reporte de Desempeño Diario")
+                        st.markdown("---")
 
-                            st.subheader("Resumen Ejecutivo")
-                            st.write(report_data.get('resumen_ejecutivo', "No disponible"))
-                            st.markdown("---")
+                        st.subheader("Resumen Ejecutivo")
+                        st.write(report_data.get('resumen_ejecutivo', "No disponible"))
+                        st.markdown("---")
 
-                            st.subheader("Observaciones Clave")
-                            observaciones = report_data.get('observaciones_clave', [])
-                            if isinstance(observaciones, list) and observaciones:
-                                for obs in observaciones:
-                                    st.markdown(f"- {obs}")
-                            else:
-                                st.write("No disponibles")
-                            st.markdown("---")
-
-                            st.subheader("Recomendaciones Estratégicas")
-                            recomendaciones = report_data.get('recomendaciones_estrategicas', [])
-                            if isinstance(recomendaciones, list) and recomendaciones:
-                                for rec in recomendaciones:
-                                    st.markdown(f"- {rec}")
-                            else:
-                                st.write("No disponibles")
-                            st.markdown("---")
-
-                            # Display signature information
-                            elaborado_por = report_data.get('elaborado_por', {})
-                            nombre = elaborado_por.get('nombre', 'N/A')
-                            cargo = elaborado_por.get('cargo', 'N/A')
-                            # Use markdown for right alignment or columns
-                            st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
-
+                        st.subheader("Observaciones Clave")
+                        observaciones = report_data.get('observaciones_clave', [])
+                        if isinstance(observaciones, list) and observaciones:
+                            for obs in observaciones:
+                                st.markdown(f"- {obs}")
                         else:
-                             # The AI returned something, but not the expected JSON structure
-                             st.error("La IA devolvió una respuesta inesperada.")
-                             st.code(report_json_str) # Show the raw string
+                            st.write("No disponibles")
+                        st.markdown("---")
 
-                    except json.JSONDecodeError:
-                         # The string returned by Gemini was not valid JSON
-                         st.error("Error: La IA no devolvió un formato JSON válido.")
-                         st.code(report_json_str) # Show the invalid string
+                        st.subheader("Recomendaciones Estratégicas")
+                        recomendaciones = report_data.get('recomendaciones_estrategicas', [])
+                        if isinstance(recomendaciones, list) and recomendaciones:
+                            for rec in recomendaciones:
+                                st.markdown(f"- {rec}")
+                        else:
+                            st.write("No disponibles")
+                        st.markdown("---")
+
+                        # Display signature information
+                        elaborado_por = report_data.get('elaborado_por', {})
+                        nombre = elaborado_por.get('nombre', 'N/A')
+                        cargo = elaborado_por.get('cargo', 'N/A')
+                        # Use markdown for right alignment or columns
+                        st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
+
+                    else:
+                         # The AI returned something, but not the expected JSON structure
+                         st.error("La IA devolvió una respuesta inesperada.")
+                         st.code(report_json_str) # Show the raw string
+
+                except json.JSONDecodeError:
+                     # The string returned by Gemini was not valid JSON
+                     st.error("Error: La IA no devolvió un formato JSON válido.")
+                     st.code(report_json_str) # Show the invalid string
 
             except Exception as e:
                 # Catch errors during Firebase fetch or Gemini call
