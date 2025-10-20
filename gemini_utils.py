@@ -16,28 +16,16 @@ class GeminiUtils:
             raise ValueError("GEMINI_API_KEY not found in Streamlit secrets")
         
         genai.configure(api_key=self.api_key)
-        self.model = self._get_available_model()
-    
-    def _get_available_model(self):
-        """
-        Initializes the best available Gemini model from a prioritized list.
-        """
-        model_candidates = [
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-pro-latest",
-        ]
         
-        for model_name in model_candidates:
-            try:
-                # Configuration for text-only generation
-                model = genai.GenerativeModel(model_name)
-                logger.info(f"✅ Text model '{model_name}' initialized successfully.")
-                return model
-            except Exception as e:
-                logger.warning(f"⚠️ Model '{model_name}' not available or not compatible: {e}")
-                continue
-        
-        raise Exception("Could not initialize any compatible Gemini text model. Please check your API Key.")
+        # Using a stable, specific model name instead of the "-latest" tag
+        # to ensure compatibility with the library version.
+        self.model_name = "gemini-1.5-flash"
+        try:
+            self.model = genai.GenerativeModel(self.model_name)
+            logger.info(f"✅ Text model '{self.model_name}' initialized successfully.")
+        except Exception as e:
+            logger.error(f"⚠️ Could not initialize model '{self.model_name}': {e}")
+            raise Exception("Could not initialize any compatible Gemini text model. Please check your API Key.")
 
     def generate_daily_report(self, orders: list):
         """
@@ -50,7 +38,6 @@ class GeminiUtils:
         total_revenue = sum(o.get('price', 0) for o in orders)
         total_orders = len(orders)
         
-        # Consolidate item sales
         item_sales = {}
         for order in orders:
             for item in order.get('ingredients', []):
@@ -102,4 +89,9 @@ class GeminiUtils:
             return response.text
         except Exception as e:
             logger.error(f"Error crítico durante la generación de reporte con Gemini: {e}")
-            return f"### Error\nNo se pudo generar el reporte: {str(e)}"
+            # The error message from the API is now more user-friendly
+            error_message = str(e)
+            if "API key not valid" in error_message:
+                return "### Error\nLa API Key de Gemini no es válida. Por favor, verifícala en los secretos de Streamlit."
+            return f"### Error\nNo se pudo generar el reporte: {error_message}"
+
