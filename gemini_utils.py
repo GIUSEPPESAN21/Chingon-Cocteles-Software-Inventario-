@@ -3,11 +3,12 @@ import logging
 from PIL import Image
 import streamlit as st
 import json
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class GeminiUtils:
+class GeminiTextUtils:
     def __init__(self):
         self.api_key = st.secrets.get('GEMINI_API_KEY')
         if not self.api_key:
@@ -32,55 +33,77 @@ class GeminiUtils:
         for model_name in model_candidates:
             try:
                 model = genai.GenerativeModel(model_name)
-                logger.info(f"✅ Modelo de visión '{model_name}' inicializado con éxito.")
+                logger.info(f"✅ Text model '{model_name}' initialized successfully.")
                 return model
             except Exception as e:
-                logger.warning(f"⚠️ Modelo '{model_name}' no disponible o no compatible: {e}")
+                logger.warning(f"⚠️ Model '{model_name}' not available or not compatible: {e}")
                 continue
         
-        raise Exception("No se pudo inicializar ningún modelo de visión de Gemini compatible. Verifica tu API Key.")
-    
-    def analyze_image(self, image_pil: Image, description: str = ""):
-        """
-        Analiza una imagen y devuelve una respuesta JSON estructurada y limpia.
-        """
-        try:
-            # Prompt optimizado para forzar una salida JSON limpia y detallada.
-            prompt = f"""
-            Analiza esta imagen de un objeto de inventario.
-            Descripción adicional del sistema de detección: "{description}"
-            
-            Actúa como un experto catalogador. Tu única salida debe ser un objeto JSON válido con estas claves:
-            - "elemento_identificado": (string) El nombre específico y descriptivo del objeto.
-            - "cantidad_aproximada": (integer) El número de unidades que ves. Si es solo uno, pon 1.
-            - "estado_condicion": (string) La condición aparente (ej: "Nuevo en empaque", "Usado, con ligeras marcas", "Componente individual").
-            - "caracteristicas_distintivas": (string) Una lista separada por comas de características visuales clave (ej: "Color rojo, carcasa metálica, conector USB-C").
-            - "posible_categoria_de_inventario": (string) La categoría más lógica (ej: "Componentes Electrónicos", "Ferretería", "Material de Oficina").
-            - "marca_modelo_sugerido": (string) Si es visible, la marca y/o modelo del objeto (ej: "Sony WH-1000XM4"). Si no, pon "No visible".
+        raise Exception("Could not initialize any compatible Gemini text model. Please check your API Key.")
 
-            IMPORTANTE: Responde solo con el objeto JSON, sin texto adicional, explicaciones, ni las marcas ```json.
-            """
-            
-            response = self.model.generate_content([prompt, image_pil])
-            
-            # Limpieza robusta de la respuesta para extraer solo el JSON.
-            if response and response.text:
-                clean_text = response.text.strip()
-                json_start = clean_text.find('{')
-                json_end = clean_text.rfind('}') + 1
-                if json_start != -1 and json_end != 0:
-                    json_str = clean_text[json_start:json_end]
-                    # Validar si es un JSON válido antes de devolver
-                    try:
-                        json.loads(json_str)
-                        return json_str
-                    except json.JSONDecodeError:
-                         return json.dumps({"error": "La IA devolvió un JSON mal formado.", "raw_response": clean_text})
-                else:
-                    return json.dumps({"error": "No se encontró un objeto JSON en la respuesta de la IA.", "raw_response": clean_text})
-            else:
-                return json.dumps({"error": "La IA no devolvió una respuesta válida."})
-                
+    def generate_daily_report(self, orders: list):
+        """
+        Generates a daily sales report with recommendations based on the provided orders.
+        """
+        if not orders:
+            return "No hay ventas que reportar para el día de hoy."
+
+        # Prepare data for the prompt
+        total_revenue = sum(o.get('price', 0) for o in orders)
+        total_orders = len(orders)
+        
+        # Consolidate item sales
+        item_sales = {}
+        for order in orders:
+            for item in order.get('ingredients', []):
+                item_name = item.get('name', 'N/A')
+                quantity = item.get('quantity', 0)
+                item_sales[item_name] = item_sales.get(item_name, 0) + quantity
+
+        top_selling_items = sorted(item_sales.items(), key=lambda x: x[1], reverse=True)
+
+        # Build the prompt
+        prompt = f"""
+        **Actúa como un analista de negocios experto para una tienda.**
+        
+        **Fecha del Reporte:** {datetime.now().strftime('%d de %B de %Y')}
+        
+        **Datos de Ventas del Día:**
+        * **Ingresos Totales:** ${total_revenue:,.2f}
+        * **Número de Pedidos:** {total_orders}
+        * **Artículos Vendidos:**
+        """
+        for name, qty in top_selling_items:
+            prompt += f"    * {name}: {qty} unidades\n"
+
+        prompt += """
+        **Tu Tarea:**
+        Basado en los datos de ventas de hoy, escribe un reporte conciso y accionable en formato Markdown. El reporte debe incluir:
+        1.  **Resumen Ejecutivo:** Un párrafo breve que resuma el rendimiento del día.
+        2.  **Observaciones Clave:** Una lista de 2-3 puntos destacando los productos más vendidos o cualquier patrón interesante.
+        3.  **Recomendaciones Estratégicas:** Una lista de 2-3 recomendaciones claras y prácticas para el negocio. Por ejemplo, sugerir promociones para artículos populares, ajustar el stock, o crear combos.
+
+        **Formato de Salida Esperado (Solo Markdown):**
+        
+        ### 📈 Reporte de Desempeño Diario
+        
+        #### Resumen Ejecutivo
+        * [Tu resumen aquí]
+        
+        #### Observaciones Clave
+        * [Observación 1]
+        * [Observación 2]
+        
+        #### Recomendaciones Estratégicas
+        * [Recomendación 1]
+        * [Recomendación 2]
+        """
+        
+        try:
+            response = self.model.generate_content(prompt)
+            return response.text
         except Exception as e:
-            logger.error(f"Error crítico durante el análisis de imagen con Gemini: {e}")
-            return json.dumps({"error": f"No se pudo contactar al servicio de IA: {str(e)}"})
+            logger.error(f"Error crítico durante la generación de reporte con Gemini: {e}")
+            return f"### Error\nNo se pudo generar el reporte: {str(e)}"
+
+    
