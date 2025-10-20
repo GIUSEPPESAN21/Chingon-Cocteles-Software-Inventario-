@@ -3,7 +3,7 @@ import logging
 from PIL import Image
 import streamlit as st
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -117,105 +117,5 @@ class GeminiUtils:
             - "nombre": "Joseph Javier Sánchez Acuña"
             - "cargo": "CEO - SAVA SOFTWARE FOR ENGINEERING"
 
-        **IMPORTANTE:** Tu única salida debe ser el objeto JSON válido. No incluyas NADA antes o después del JSON, ni explicaciones, ni las marcas ```json. Asegúrate de que las strings dentro del JSON usen comillas dobles y que las listas sean arrays JSON válidos (ej: ["obs1", "obs2"]).
-        """
+        **IMPORTANTE:** Tu única salida debe ser el objeto JSON válido. No incluyas NADA antes o después del JSON, ni explicaciones, ni las marcas 
 
-        try:
-            # Configure generation for JSON output if API supports it, otherwise rely on prompt
-            # generation_config = genai.types.GenerationConfig(response_mime_type="application/json") # Might not be supported by all models/versions
-            # response = self.model.generate_content(prompt, generation_config=generation_config)
-            response = self.model.generate_content(prompt) # Default text generation
-
-
-            # Robust JSON extraction and validation
-            if response and response.text:
-                 clean_text = response.text.strip()
-                 # Try to find JSON block, removing potential markdown backticks
-                 json_start = clean_text.find('{')
-                 json_end = clean_text.rfind('}') + 1
-
-                 if json_start != -1 and json_end != 0:
-                     json_str = clean_text[json_start:json_end]
-                     try:
-                         # Validate it's proper JSON
-                         json.loads(json_str)
-                         # Check if essential keys are present (basic validation)
-                         temp_data = json.loads(json_str)
-                         if all(k in temp_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
-                            return json_str # Return the valid JSON string
-                         else:
-                             logger.warning("IA devolvió JSON pero faltan claves esperadas.")
-                             return json.dumps({"error": "La IA devolvió un JSON incompleto.", "raw_response": clean_text})
-
-                     except json.JSONDecodeError:
-                          logger.error("IA devolvió un JSON mal formado.")
-                          return json.dumps({"error": "La IA devolvió un JSON mal formado.", "raw_response": clean_text})
-                 else:
-                     logger.error("No se encontró un objeto JSON en la respuesta de la IA.")
-                     return json.dumps({"error": "No se encontró un objeto JSON en la respuesta de la IA.", "raw_response": clean_text})
-            else:
-                 logger.error("La IA no devolvió una respuesta válida.")
-                 return json.dumps({"error": "La IA no devolvió una respuesta válida."})
-
-        except Exception as e:
-            logger.error(f"Error crítico durante la generación de reporte con Gemini: {e}")
-            error_message = str(e)
-            # Specific error check
-            if "API key not valid" in error_message:
-                return json.dumps({"error": "La API Key de Gemini no es válida. Verifícala en los secretos."})
-            # General error
-            return json.dumps({"error": f"No se pudo generar el reporte: {error_message}"})
-
-
-    def analyze_image(self, image_pil: Image, description: str = ""):
-        """
-        Analiza una imagen y devuelve una respuesta JSON estructurada y limpia.
-        (Kept for potential future use, ensure vision model is compatible)
-        """
-        if not self.model: # Assuming the selected model is multimodal
-            return json.dumps({"error": "El modelo de Gemini no está inicializado."})
-
-        try:
-            prompt = f"""
-            Analiza esta imagen de un objeto de inventario.
-            Descripción adicional del sistema de detección: "{description}"
-
-            Actúa como un experto catalogador. Tu única salida debe ser un objeto JSON válido con estas claves:
-            - "elemento_identificado": (string) El nombre específico y descriptivo del objeto.
-            - "cantidad_aproximada": (integer) El número de unidades que ves. Si es solo uno, pon 1.
-            - "estado_condicion": (string) La condición aparente (ej: "Nuevo en empaque", "Usado", "Componente").
-            - "caracteristicas_distintivas": (string) Lista separada por comas de características visuales clave.
-            - "posible_categoria_de_inventario": (string) La categoría más lógica (ej: "Electrónicos", "Ferretería").
-            - "marca_modelo_sugerido": (string) Si es visible, marca y/o modelo (ej: "Sony XM4"). Si no, "No visible".
-
-            IMPORTANTE: Responde solo con el objeto JSON válido, sin texto adicional ni marcas ```json.
-            """
-
-            # Assuming the initialized model can handle image input
-            response = self.model.generate_content([prompt, image_pil])
-
-            # Robust JSON extraction (similar to report generation)
-            if response and response.text:
-                clean_text = response.text.strip()
-                json_start = clean_text.find('{')
-                json_end = clean_text.rfind('}') + 1
-                if json_start != -1 and json_end != 0:
-                    json_str = clean_text[json_start:json_end]
-                    try:
-                        json.loads(json_str) # Validate JSON
-                        # Basic check for expected keys
-                        temp_data = json.loads(json_str)
-                        if "elemento_identificado" in temp_data:
-                            return json_str
-                        else:
-                             return json.dumps({"error": "JSON de imagen incompleto.", "raw_response": clean_text})
-                    except json.JSONDecodeError:
-                         return json.dumps({"error": "JSON de imagen mal formado.", "raw_response": clean_text})
-                else:
-                    return json.dumps({"error": "No se encontró JSON en respuesta de imagen.", "raw_response": clean_text})
-            else:
-                return json.dumps({"error": "Respuesta de imagen inválida."})
-
-        except Exception as e:
-            logger.error(f"Error crítico durante el análisis de imagen con Gemini: {e}")
-            return json.dumps({"error": f"No se pudo contactar al servicio de IA para imagen: {str(e)}"})
