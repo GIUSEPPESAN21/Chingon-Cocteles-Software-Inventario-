@@ -97,7 +97,7 @@ class GeminiUtils:
             **Joseph Javier Sánchez Acuña**
             *CEO - SAVA SOFTWARE FOR ENGINEERING*
 
-        **IMPORTANTE:** Tu única salida debe ser el texto del reporte en formato Markdown.
+        **IMPORTANTE:** Tu única salida debe ser el texto del reporte en formato Markdown. No incluyas nada más.
         """
 
         try:
