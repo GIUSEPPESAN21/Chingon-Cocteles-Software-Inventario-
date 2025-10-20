@@ -51,21 +51,12 @@ class GeminiUtils:
 
     def generate_daily_report(self, orders: list):
         """
-        Generates a daily sales report as a JSON string with recommendations.
+        Generates a daily sales report as a Markdown string with recommendations.
         """
         if not self.model:
-            return json.dumps({"error": "El modelo de texto no está inicializado."})
+            return "### Error\nEl modelo de texto no está inicializado."
         if not orders:
-            return json.dumps({
-                "resumen_ejecutivo": "No hubo ventas completadas hoy.",
-                "observaciones_clave": [],
-                "recomendaciones_estrategicas": [],
-                "elaborado_por": {
-                    "nombre": "Joseph Javier Sánchez Acuña",
-                    "cargo": "CEO - SAVA SOFTWARE FOR ENGINEERING"
-                },
-                "metadata": {"status": "no_data"}
-            })
+            return "### Reporte Diario\nNo hubo ventas completadas hoy para generar un reporte."
 
         total_revenue = sum(o.get('price', 0) for o in orders if isinstance(o.get('price'), (int, float)))
         total_orders = len(orders)
@@ -95,47 +86,34 @@ class GeminiUtils:
 
         prompt += """
         **Tu Tarea:**
-        Basado EXCLUSIVAMENTE en los datos de ventas proporcionados para el día de hoy, genera un objeto JSON.
-        El JSON debe tener las siguientes claves EXACTAS:
-        - "resumen_ejecutivo": (string) Un párrafo MUY CORTO (1-2 frases) resumiendo el rendimiento del día (ingresos y número de pedidos).
-        - "observaciones_clave": (array of strings) Una lista con 2 o 3 puntos cortos destacando los productos más vendidos o algún patrón MUY OBVIO de los datos. Sé conciso. No inventes patrones si no los ves claramente.
-        - "recomendaciones_estrategicas": (array of strings) Una lista con 2 o 3 recomendaciones CORTAS, CLARAS y ACCIONABLES directamente relacionadas con las observaciones. Ej: "Considerar promoción para [producto más vendido]" o "Evaluar stock de [producto de baja venta]". No des consejos genéricos.
-        - "elaborado_por": (object) Un objeto con las claves "nombre" y "cargo" con los siguientes valores fijos:
-            - "nombre": "Joseph Javier Sánchez Acuña"
-            - "cargo": "CEO - SAVA SOFTWARE FOR ENGINEERING"
+        Basado en los datos de ventas de hoy, escribe un reporte conciso y accionable en formato Markdown. El reporte debe incluir:
+        1.  Un **Resumen Ejecutivo** de una o dos frases.
+        2.  Una sección de **Observaciones Clave** con 2-3 puntos importantes.
+        3.  Una sección de **Recomendaciones Estratégicas** con 2-3 acciones claras.
+        4.  Al final del todo, incluye la siguiente firma:
+            
+            ---
+            *Elaborado por:*
+            **Joseph Javier Sánchez Acuña**
+            *CEO - SAVA SOFTWARE FOR ENGINEERING*
 
-        **IMPORTANTE:** Tu única salida debe ser el objeto JSON válido. No incluyas NADA antes o después del JSON, ni explicaciones, ni las marcas ```json.
+        **IMPORTANTE:** Tu única salida debe ser el texto del reporte en formato Markdown.
         """
 
         try:
-            # MEJORA: Se utiliza 'generation_config' para solicitar explícitamente una salida JSON.
-            # Esto es más fiable y simplifica el análisis de la respuesta.
-            generation_config = {
-                "response_mime_type": "application/json",
-            }
-            response = self.model.generate_content(prompt, generation_config=generation_config)
-
+            response = self.model.generate_content(prompt)
             if response and response.text:
-                report_data = json.loads(response.text)
-                if all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
-                    return response.text
-                else:
-                    logger.warning("La IA devolvió un JSON pero faltan claves esperadas.")
-                    return json.dumps({"error": "La IA devolvió un JSON incompleto.", "raw_response": response.text})
+                return response.text
             else:
-                 logger.error("La IA no devolvió una respuesta de texto válida.")
-                 return json.dumps({"error": "La IA no devolvió una respuesta válida."})
+                logger.error("La IA no devolvió una respuesta de texto válida.")
+                return "### Error\nLa IA no devolvió una respuesta válida."
 
-        except json.JSONDecodeError:
-            raw_response = response.text if 'response' in locals() and hasattr(response, 'text') else "No response text available."
-            logger.error("La IA no devolvió un formato JSON válido a pesar de la solicitud.")
-            return json.dumps({"error": "La IA no devolvió un formato JSON válido.", "raw_response": raw_response})
         except Exception as e:
             logger.error(f"Error crítico durante la generación de reporte con Gemini: {e}")
             error_message = str(e)
             if "API key not valid" in error_message:
-                return json.dumps({"error": "La API Key de Gemini no es válida. Verifícala en los secretos."})
-            return json.dumps({"error": f"No se pudo generar el reporte: {error_message}"})
+                return "### Error\nLa API Key de Gemini no es válida. Verifícala en los secretos."
+            return f"### Error\nNo se pudo generar el reporte: {error_message}"
 
 
     def analyze_image(self, image_pil: Image, description: str = ""):
@@ -161,7 +139,6 @@ class GeminiUtils:
             IMPORTANTE: Responde solo con el objeto JSON válido, sin texto adicional ni marcas ```json.
             """
             
-            # MEJORA: Se utiliza 'generation_config' para solicitar una salida JSON.
             generation_config = {
                 "response_mime_type": "application/json",
             }
@@ -184,3 +161,4 @@ class GeminiUtils:
         except Exception as e:
             logger.error(f"Error crítico durante el análisis de imagen con Gemini: {e}")
             return json.dumps({"error": f"No se pudo contactar al servicio de IA para imagen: {str(e)}"})
+
