@@ -70,7 +70,7 @@ body, .stApp {
 
 
 /* --- Contenedores y Expanders --- */
-.stExpander, .st-emotion-cache-1r6slb0 { /* This targets the main container for inventory items etc. */
+.st-emotion-cache-1r6slb0, .st-emotion-cache-q2k7yy { /* Targets inventory containers and expanders */
     background-color: var(--surface-color);
     border-radius: var(--border-radius) !important;
     border: 1px solid var(--border-color) !important;
@@ -79,13 +79,14 @@ body, .stApp {
     transition: all 0.3s ease-in-out; /* Added transition */
 }
 
-.st-emotion-cache-1r6slb0:hover {
+.st-emotion-cache-1r6slb0:hover, .st-emotion-cache-q2k7yy:hover {
     border-color: var(--primary-color) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.07) !important;
     transform: translateY(-2px);
 }
 
 
-.st-emotion-cache-1r6slb0 p {
+.st-emotion-cache-1r6slb0 p, .st-emotion-cache-q2k7yy p {
     font-weight: 600;
     color: var(--text-color);
 }
@@ -111,6 +112,11 @@ body, .stApp {
     color: var(--text-color);
     border: 1px solid var(--border-color);
 }
+.stButton > button[kind="secondary"]:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
 
 /* --- Formularios y Entradas de Texto --- */
 .st-emotion-cache-s492s5 { /* Contenedor de formulario */
@@ -119,3 +125,4 @@ body, .stApp {
     border-radius: var(--border-radius);
     border: 1px solid var(--border-color);
 }
+
