@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 HI-DRIVE: Sistema Avanzado de Gestión de Inventario con IA
-Versión 2.2 - Adaptado para Chingon (Reporte Estructurado y Optimizado)
+Versión 2.2 - Adaptado para Chingon (Reporte Estructurado)
 """
 import streamlit as st
 from PIL import Image
@@ -87,19 +87,6 @@ def init_session_state():
 
 init_session_state()
 
-# --- OPTIMIZACIÓN: Funciones de carga de datos con caché ---
-@st.cache_data(ttl=300) # Cache for 5 minutes
-def get_cached_inventory():
-    return firebase.get_all_inventory_items()
-
-@st.cache_data(ttl=300)
-def get_cached_orders(status=None):
-    return firebase.get_orders(status=status)
-
-@st.cache_data(ttl=600) # Suppliers change less often
-def get_cached_suppliers():
-    return firebase.get_all_suppliers()
-
 
 # --- LÓGICA DE NOTIFICACIONES ---
 def send_whatsapp_alert(message):
@@ -133,7 +120,8 @@ PAGES = {
     "🏢 Acerca de SAVA": "building"
 }
 for page_name, icon in PAGES.items():
-    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", use_container_width=True, type="primary" if st.session_state.page == page_name else "secondary"):
+    # Use width='stretch' instead of use_container_width=True
+    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", width='stretch', type="primary" if st.session_state.page == page_name else "secondary"):
         st.session_state.page = page_name
         # Reset specific states when changing pages if needed
         st.session_state.editing_item_id = None
@@ -171,9 +159,9 @@ if st.session_state.page == "🏠 Inicio":
     orders = []
     suppliers = []
     try:
-        items = get_cached_inventory()
-        orders = get_cached_orders(status=None) # Fetch all orders initially
-        suppliers = get_cached_suppliers()
+        items = firebase.get_all_inventory_items()
+        orders = firebase.get_orders(status=None) # Fetch all orders initially
+        suppliers = firebase.get_all_suppliers()
         total_inventory_value = sum(item.get('quantity', 0) * item.get('purchase_price', 0) for item in items if isinstance(item.get('quantity'), (int, float)) and isinstance(item.get('purchase_price'), (int, float)))
         processing_orders_count = len([o for o in orders if o.get('status') == 'processing'])
 
@@ -191,11 +179,11 @@ if st.session_state.page == "🏠 Inicio":
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Acciones Rápidas")
-        if st.button("🛰️ Usar Escáner USB", use_container_width=True):
+        if st.button("🛰️ Usar Escáner USB", width='stretch'):
              st.session_state.page = "🛰️ Escáner USB"; st.rerun()
-        if st.button("📝 Crear Nuevo Pedido", use_container_width=True):
+        if st.button("📝 Crear Nuevo Pedido", width='stretch'):
             st.session_state.page = "🛒 Pedidos"; st.rerun()
-        if st.button("➕ Añadir Artículo", use_container_width=True):
+        if st.button("➕ Añadir Artículo", width='stretch'):
             st.session_state.page = "📦 Inventario"; st.rerun()
 
     with col2:
@@ -235,7 +223,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
             with st.form("usb_inventory_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Código de Barras", key="usb_barcode_inv_input",
                                               help="Haz clic aquí antes de escanear.")
-                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True)
+                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True) # Use standard width param
                 if submitted and barcode_input:
                     st.session_state.usb_scan_result = barcode_manager.handle_inventory_scan(barcode_input)
                     # No rerun here, let the result display below
@@ -275,7 +263,6 @@ elif st.session_state.page == "🛰️ Escáner USB":
                         try:
                             firebase.save_inventory_item(updated_data, item['id'], is_new=False, details="Actualización vía Escáner USB.")
                             st.success(f"¡'{item.get('name', 'N/A')}' actualizado con éxito!")
-                            st.cache_data.clear()
                             st.session_state.usb_scan_result = None # Clear result after update
                             st.rerun() # Rerun to reflect changes if needed elsewhere or clear form
                         except Exception as update_e:
@@ -306,7 +293,6 @@ elif st.session_state.page == "🛰️ Escáner USB":
                             try:
                                 firebase.save_inventory_item(data, barcode, is_new=True, details="Creado vía Escáner USB.")
                                 st.success(f"¡Producto '{name}' guardado!")
-                                st.cache_data.clear()
                                 st.session_state.usb_scan_result = None # Clear result after creation
                                 st.rerun() # Rerun to clear form and potentially update lists
                             except Exception as create_e:
@@ -367,7 +353,6 @@ elif st.session_state.page == "🛰️ Escáner USB":
                             send_whatsapp_alert(f"💸 Venta Rápida Procesada: {sale_id} por un total de ${total_sale_price:,.2f}")
                             for alert in alerts: send_whatsapp_alert(f"📉 ALERTA DE STOCK: {alert}")
                             st.session_state.usb_sale_items = [] # Clear sale items
-                            st.cache_data.clear()
                             st.rerun() # Update UI
                         else:
                             st.error(msg)
@@ -385,7 +370,6 @@ elif st.session_state.page == "📦 Inventario":
     if st.session_state.editing_item_id:
         item_id_to_edit = st.session_state.editing_item_id
         try:
-            # No caching here, we need the absolute latest data for editing
             item_to_edit = firebase.get_inventory_item_details(item_id_to_edit)
             if not item_to_edit:
                 st.error(f"No se encontró el artículo con ID {item_id_to_edit} para editar.")
@@ -394,7 +378,7 @@ elif st.session_state.page == "📦 Inventario":
             else:
                  st.subheader(f"✏️ Editando: {item_to_edit.get('name', 'N/A')}")
                  with st.form("edit_item_form"):
-                    suppliers = get_cached_suppliers()
+                    suppliers = firebase.get_all_suppliers()
                     supplier_map = {s.get('name', f"ID: {s.get('id')}"): s.get('id') for s in suppliers}
                     supplier_names = [""] + list(supplier_map.keys())
                     current_supplier_name = item_to_edit.get('supplier_name')
@@ -428,8 +412,6 @@ elif st.session_state.page == "📦 Inventario":
                                 firebase.save_inventory_item(data, item_id_to_edit, is_new=False, details="Edición manual de datos.")
                                 st.success(f"Artículo '{name}' actualizado.")
                                 st.session_state.editing_item_id = None
-                                # Clear cache after edit
-                                st.cache_data.clear()
                                 st.rerun()
                             except Exception as edit_e:
                                 st.error(f"Error al guardar cambios: {edit_e}")
@@ -448,9 +430,9 @@ elif st.session_state.page == "📦 Inventario":
     else:
         tab1, tab2 = st.tabs(["📋 Inventario Actual", "➕ Añadir Artículo"])
         with tab1:
-            search_query = st.text_input(" Buscar por Nombre o Código/ID", placeholder="Ej: Tequila, 750100100200")
+            search_query = st.text_input(" Buscar por Nombre o Código/ID", placeholder="Ej: Laptop, 750100100200")
             try:
-                items = get_cached_inventory()
+                items = firebase.get_all_inventory_items()
 
                 if search_query:
                     search_query_lower = search_query.lower()
@@ -483,7 +465,7 @@ elif st.session_state.page == "📦 Inventario":
         with tab2:
             st.subheader("Añadir Nuevo Artículo al Inventario")
             try:
-                suppliers = get_cached_suppliers()
+                suppliers = firebase.get_all_suppliers()
                 supplier_map = {s.get('name', f"ID: {s.get('id')}"): s.get('id') for s in suppliers}
                 supplier_names = [""] + list(supplier_map.keys()) # Add empty option
 
@@ -516,9 +498,7 @@ elif st.session_state.page == "📦 Inventario":
                                 try:
                                     firebase.save_inventory_item(data, custom_id, is_new=True)
                                     st.success(f"Artículo '{name}' guardado con ID: {custom_id}.")
-                                    # Clear cache after add
-                                    st.cache_data.clear()
-                                    st.rerun()
+                                    # Consider adding st.rerun() if you want the form to clear or list to update immediately
                                 except Exception as add_e:
                                     st.error(f"Error al guardar el nuevo artículo: {add_e}")
                         else:
@@ -547,7 +527,6 @@ elif st.session_state.page == "👥 Proveedores":
                             "phone": phone
                         })
                         st.success(f"Proveedor '{name}' añadido.")
-                        st.cache_data.clear() # Clear cache
                         st.rerun() # Rerun to update the list on the right
                     except Exception as add_sup_e:
                          st.error(f"Error al añadir proveedor: {add_sup_e}")
@@ -556,7 +535,7 @@ elif st.session_state.page == "👥 Proveedores":
     with col2:
         st.subheader("Lista de Proveedores")
         try:
-            suppliers = get_cached_suppliers()
+            suppliers = firebase.get_all_suppliers()
             if not suppliers:
                 st.info("No hay proveedores registrados.")
             else:
@@ -566,13 +545,21 @@ elif st.session_state.page == "👥 Proveedores":
                         st.write(f"**Contacto:** {s.get('contact_person', 'N/A')}")
                         st.write(f"**Email:** {s.get('email', 'N/A')}")
                         st.write(f"**Teléfono:** {s.get('phone', 'N/A')}")
+                        # Add edit/delete buttons if needed
+                        # if st.button("🗑️", key=f"del_{s.get('id')}", help="Eliminar Proveedor"):
+                        #     try:
+                        #         firebase.delete_supplier(s.get('id'))
+                        #         st.toast(f"Proveedor '{s.get('name')}' eliminado.")
+                        #         st.rerun()
+                        #     except Exception as del_e:
+                        #         st.error(f"Error al eliminar: {del_e}")
         except Exception as list_sup_e:
              st.error(f"Error al cargar la lista de proveedores: {list_sup_e}")
 
 
 elif st.session_state.page == "🛒 Pedidos":
     try:
-        items_from_db = get_cached_inventory()
+        items_from_db = firebase.get_all_inventory_items()
     except Exception as e:
         st.error(f"Error al cargar artículos de inventario: {e}")
         items_from_db = [] # Ensure it's a list even on error
@@ -752,7 +739,6 @@ elif st.session_state.page == "🛒 Pedidos":
                                 st.success(f"Pedido '{final_title}' creado con éxito.")
                                 send_whatsapp_alert(f"🧾 Nuevo Pedido: {final_title} por ${total_price:,.2f}")
                                 st.session_state.order_items = [] # Clear items after successful order
-                                st.cache_data.clear() # Clear cache
                                 st.rerun() # Rerun to clear the order details
                             except Exception as create_order_e:
                                 st.error(f"Error al crear el pedido: {create_order_e}")
@@ -761,7 +747,7 @@ elif st.session_state.page == "🛒 Pedidos":
     st.markdown("---")
     st.subheader("⏳ Pedidos en Proceso")
     try:
-        processing_orders = get_cached_orders('processing')
+        processing_orders = firebase.get_orders('processing')
         if not processing_orders:
             st.info("No hay pedidos en proceso.")
         else:
@@ -779,7 +765,6 @@ elif st.session_state.page == "🛒 Pedidos":
                                 st.success(msg)
                                 send_whatsapp_alert(f"✅ Pedido Completado: {order.get('title', 'N/A')}")
                                 for alert in alerts: send_whatsapp_alert(f"📉 ALERTA DE STOCK: {alert}")
-                                st.cache_data.clear() # Clear cache
                                 st.rerun() # Refresh list
                             else:
                                 st.error(msg)
@@ -790,7 +775,6 @@ elif st.session_state.page == "🛒 Pedidos":
                         try:
                              firebase.cancel_order(order_id)
                              st.toast(f"Pedido '{order.get('title', 'N/A')}' cancelado.")
-                             st.cache_data.clear() # Clear cache
                              st.rerun() # Refresh list
                         except Exception as cancel_e:
                              st.error(f"Error al cancelar pedido: {cancel_e}")
@@ -802,8 +786,8 @@ elif st.session_state.page == "🛒 Pedidos":
 elif st.session_state.page == "📊 Analítica":
     try:
         # Fetch data only once for the page
-        completed_orders = get_cached_orders('completed')
-        all_inventory_items = get_cached_inventory()
+        completed_orders = firebase.get_orders('completed')
+        all_inventory_items = firebase.get_all_inventory_items()
     except Exception as e:
         st.error(f"No se pudieron cargar los datos para el análisis: {e}")
         completed_orders, all_inventory_items = [], [] # Default to empty lists on error
@@ -1003,63 +987,66 @@ elif st.session_state.page == "📈 Reporte Diario":
 
                 completed_orders_today = firebase.get_orders_in_date_range(start_of_day, end_of_day)
 
-                # Request structured data (JSON string) from Gemini
-                report_json_str = gemini.generate_daily_report(completed_orders_today)
-                try:
-                    # Attempt to parse the JSON string
-                    report_data = json.loads(report_json_str)
+                if not completed_orders_today:
+                    st.warning("No hay ventas completadas hoy para generar un reporte.")
+                else:
+                    # Request structured data (JSON string) from Gemini
+                    report_json_str = gemini.generate_daily_report(completed_orders_today)
+                    try:
+                        # Attempt to parse the JSON string
+                        report_data = json.loads(report_json_str)
 
-                    # Check if it's the error structure
-                    if isinstance(report_data, dict) and "error" in report_data:
-                        st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
-                        # Optionally show raw response if available
-                        raw = report_data.get('raw_response')
-                        if raw:
-                            st.caption(f"Respuesta cruda: {raw}")
-                    # Check for expected keys
-                    elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
-                         # Build the report using Streamlit components for better formatting
-                        st.markdown("### 📈 Reporte de Desempeño Diario")
-                        st.markdown("---")
+                        # Check if it's the error structure
+                        if isinstance(report_data, dict) and "error" in report_data:
+                            st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
+                            # Optionally show raw response if available
+                            raw = report_data.get('raw_response')
+                            if raw:
+                                st.caption(f"Respuesta cruda: {raw}")
+                        # Check for expected keys
+                        elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
+                             # Build the report using Streamlit components for better formatting
+                            st.markdown("### 📈 Reporte de Desempeño Diario")
+                            st.markdown("---")
 
-                        st.subheader("Resumen Ejecutivo")
-                        st.write(report_data.get('resumen_ejecutivo', "No disponible"))
-                        st.markdown("---")
+                            st.subheader("Resumen Ejecutivo")
+                            st.write(report_data.get('resumen_ejecutivo', "No disponible"))
+                            st.markdown("---")
 
-                        st.subheader("Observaciones Clave")
-                        observaciones = report_data.get('observaciones_clave', [])
-                        if isinstance(observaciones, list) and observaciones:
-                            for obs in observaciones:
-                                st.markdown(f"- {obs}")
+                            st.subheader("Observaciones Clave")
+                            observaciones = report_data.get('observaciones_clave', [])
+                            if isinstance(observaciones, list) and observaciones:
+                                for obs in observaciones:
+                                    st.markdown(f"- {obs}")
+                            else:
+                                st.write("No disponibles")
+                            st.markdown("---")
+
+                            st.subheader("Recomendaciones Estratégicas")
+                            recomendaciones = report_data.get('recomendaciones_estrategicas', [])
+                            if isinstance(recomendaciones, list) and recomendaciones:
+                                for rec in recomendaciones:
+                                    st.markdown(f"- {rec}")
+                            else:
+                                st.write("No disponibles")
+                            st.markdown("---")
+
+                            # Display signature information
+                            elaborado_por = report_data.get('elaborado_por', {})
+                            nombre = elaborado_por.get('nombre', 'N/A')
+                            cargo = elaborado_por.get('cargo', 'N/A')
+                            # Use markdown for right alignment or columns
+                            st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
+
                         else:
-                            st.write("No disponibles")
-                        st.markdown("---")
+                             # The AI returned something, but not the expected JSON structure
+                             st.error("La IA devolvió una respuesta inesperada.")
+                             st.code(report_json_str) # Show the raw string
 
-                        st.subheader("Recomendaciones Estratégicas")
-                        recomendaciones = report_data.get('recomendaciones_estrategicas', [])
-                        if isinstance(recomendaciones, list) and recomendaciones:
-                            for rec in recomendaciones:
-                                st.markdown(f"- {rec}")
-                        else:
-                            st.write("No disponibles")
-                        st.markdown("---")
-
-                        # Display signature information
-                        elaborado_por = report_data.get('elaborado_por', {})
-                        nombre = elaborado_por.get('nombre', 'N/A')
-                        cargo = elaborado_por.get('cargo', 'N/A')
-                        # Use markdown for right alignment or columns
-                        st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
-
-                    else:
-                         # The AI returned something, but not the expected JSON structure
-                         st.error("La IA devolvió una respuesta inesperada.")
-                         st.code(report_json_str) # Show the raw string
-
-                except json.JSONDecodeError:
-                     # The string returned by Gemini was not valid JSON
-                     st.error("Error: La IA no devolvió un formato JSON válido.")
-                     st.code(report_json_str) # Show the invalid string
+                    except json.JSONDecodeError:
+                         # The string returned by Gemini was not valid JSON
+                         st.error("Error: La IA no devolvió un formato JSON válido.")
+                         st.code(report_json_str) # Show the invalid string
 
             except Exception as e:
                 # Catch errors during Firebase fetch or Gemini call
@@ -1119,4 +1106,3 @@ elif st.session_state.page == "🏢 Acerca de SAVA":
     with c3_cof:
         # Assuming Joseph is also the Project Director based on previous code
         st.info("**Joseph Javier Sanchez Acuña**\n\n*Director de Proyecto*")
-
