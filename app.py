@@ -104,7 +104,7 @@ def send_whatsapp_alert(message):
         st.error(f"Error al enviar alerta de Twilio: {e}", icon="🚨")
 
 # --- NAVEGACIÓN PRINCIPAL (SIDEBAR) ---
-st.sidebar.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", use_container_width=True)
+st.sidebar.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", width=150)
 st.sidebar.markdown('<h1 style="text-align: center; font-size: 2.2rem; margin-top: -20px;">OSIRIS</h1>', unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; margin-top: -15px;'>by <strong>SAVA</strong> for <strong>Chingon</strong></p>", unsafe_allow_html=True)
 
@@ -120,8 +120,7 @@ PAGES = {
     "🏢 Acerca de SAVA": "building"
 }
 for page_name, icon in PAGES.items():
-    # Use width='stretch' instead of use_container_width=True
-    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", width='stretch', type="primary" if st.session_state.page == page_name else "secondary"):
+    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", use_container_width=True, type="primary" if st.session_state.page == page_name else "secondary"):
         st.session_state.page = page_name
         # Reset specific states when changing pages if needed
         st.session_state.editing_item_id = None
@@ -179,11 +178,11 @@ if st.session_state.page == "🏠 Inicio":
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Acciones Rápidas")
-        if st.button("🛰️ Usar Escáner USB", width='stretch'):
+        if st.button("🛰️ Usar Escáner USB", use_container_width=True):
              st.session_state.page = "🛰️ Escáner USB"; st.rerun()
-        if st.button("📝 Crear Nuevo Pedido", width='stretch'):
+        if st.button("📝 Crear Nuevo Pedido", use_container_width=True):
             st.session_state.page = "🛒 Pedidos"; st.rerun()
-        if st.button("➕ Añadir Artículo", width='stretch'):
+        if st.button("➕ Añadir Artículo", use_container_width=True):
             st.session_state.page = "📦 Inventario"; st.rerun()
 
     with col2:
@@ -223,7 +222,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
             with st.form("usb_inventory_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Código de Barras", key="usb_barcode_inv_input",
                                               help="Haz clic aquí antes de escanear.")
-                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True) # Use standard width param
+                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True)
                 if submitted and barcode_input:
                     st.session_state.usb_scan_result = barcode_manager.handle_inventory_scan(barcode_input)
                     # No rerun here, let the result display below
@@ -987,69 +986,61 @@ elif st.session_state.page == "📈 Reporte Diario":
 
                 completed_orders_today = firebase.get_orders_in_date_range(start_of_day, end_of_day)
 
-                if not completed_orders_today:
-                    st.warning("No hay ventas completadas hoy para generar un reporte.")
-                else:
-                    # Request structured data (JSON string) from Gemini
-                    report_json_str = gemini.generate_daily_report(completed_orders_today)
-                    try:
-                        # Attempt to parse the JSON string
-                        report_data = json.loads(report_json_str)
+                # Request structured data (JSON string) from Gemini
+                report_json_str = gemini.generate_daily_report(completed_orders_today)
+                try:
+                    # Attempt to parse the JSON string
+                    report_data = json.loads(report_json_str)
 
-                        # Check if it's the error structure
-                        if isinstance(report_data, dict) and "error" in report_data:
-                            st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
-                            # Optionally show raw response if available
-                            raw = report_data.get('raw_response')
-                            if raw:
-                                st.caption(f"Respuesta cruda: {raw}")
-                        # Check for expected keys
-                        elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
-                             # Build the report using Streamlit components for better formatting
-                            st.markdown("### 📈 Reporte de Desempeño Diario")
-                            st.markdown("---")
+                    # Check if it's the error structure
+                    if isinstance(report_data, dict) and "error" in report_data:
+                        st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
+                        raw = report_data.get('raw_response')
+                        if raw:
+                            st.caption(f"Respuesta cruda: {raw}")
+                    # Check for expected keys
+                    elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
+                         # Build the report using Streamlit components for better formatting
+                        st.markdown("### 📈 Reporte de Desempeño Diario")
+                        st.markdown("---")
 
-                            st.subheader("Resumen Ejecutivo")
-                            st.write(report_data.get('resumen_ejecutivo', "No disponible"))
-                            st.markdown("---")
+                        st.subheader("Resumen Ejecutivo")
+                        st.write(report_data.get('resumen_ejecutivo', "No disponible"))
+                        st.markdown("---")
 
-                            st.subheader("Observaciones Clave")
-                            observaciones = report_data.get('observaciones_clave', [])
-                            if isinstance(observaciones, list) and observaciones:
-                                for obs in observaciones:
-                                    st.markdown(f"- {obs}")
-                            else:
-                                st.write("No disponibles")
-                            st.markdown("---")
-
-                            st.subheader("Recomendaciones Estratégicas")
-                            recomendaciones = report_data.get('recomendaciones_estrategicas', [])
-                            if isinstance(recomendaciones, list) and recomendaciones:
-                                for rec in recomendaciones:
-                                    st.markdown(f"- {rec}")
-                            else:
-                                st.write("No disponibles")
-                            st.markdown("---")
-
-                            # Display signature information
-                            elaborado_por = report_data.get('elaborado_por', {})
-                            nombre = elaborado_por.get('nombre', 'N/A')
-                            cargo = elaborado_por.get('cargo', 'N/A')
-                            # Use markdown for right alignment or columns
-                            st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
-
+                        st.subheader("Observaciones Clave")
+                        observaciones = report_data.get('observaciones_clave', [])
+                        if isinstance(observaciones, list) and observaciones:
+                            for obs in observaciones:
+                                st.markdown(f"- {obs}")
                         else:
-                             # The AI returned something, but not the expected JSON structure
-                             st.error("La IA devolvió una respuesta inesperada.")
-                             st.code(report_json_str) # Show the raw string
+                            st.info("No hay observaciones clave disponibles.")
+                        st.markdown("---")
 
-                    except json.JSONDecodeError:
-                         # The string returned by Gemini was not valid JSON
-                         st.error("Error: La IA no devolvió un formato JSON válido.")
-                         st.code(report_json_str) # Show the invalid string
+                        st.subheader("Recomendaciones Estratégicas")
+                        recomendaciones = report_data.get('recomendaciones_estrategicas', [])
+                        if isinstance(recomendaciones, list) and recomendaciones:
+                            for rec in recomendaciones:
+                                st.markdown(f"- {rec}")
+                        else:
+                            st.info("No hay recomendaciones estratégicas disponibles.")
+                        st.markdown("---")
+
+                        # Display signature information
+                        elaborado_por = report_data.get('elaborado_por', {})
+                        nombre = elaborado_por.get('nombre', 'N/A')
+                        cargo = elaborado_por.get('cargo', 'N/A')
+                        st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
+
+                    else:
+                         st.error("La IA devolvió una respuesta inesperada.")
+                         st.code(report_json_str, language='json')
+
+                except json.JSONDecodeError:
+                     st.error("Error: La IA no devolvió un formato JSON válido.")
+                     st.code(report_json_str, language='text')
 
             except Exception as e:
-                # Catch errors during Firebase fetch or Gemini call
                 st.error(f"Ocurrió un error general al generar el reporte: {e}")
 
 
@@ -1106,3 +1097,4 @@ elif st.session_state.page == "🏢 Acerca de SAVA":
     with c3_cof:
         # Assuming Joseph is also the Project Director based on previous code
         st.info("**Joseph Javier Sanchez Acuña**\n\n*Director de Proyecto*")
+
