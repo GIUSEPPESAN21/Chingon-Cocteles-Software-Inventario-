@@ -132,7 +132,8 @@ for page_name, icon in PAGES.items():
         st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.info("© 2025 SAVA & Chingon. Todos los derechos reservados.")
+st.sidebar.markdown("<small>© 2025 SAVA & Chingon. Todos los derechos reservados.</small>", unsafe_allow_html=True)
+
 
 # --- RENDERIZADO DE PÁGINAS ---
 if st.session_state.page != "🏠 Inicio":
