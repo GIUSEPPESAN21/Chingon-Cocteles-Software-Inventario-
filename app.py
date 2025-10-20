@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 HI-DRIVE: Sistema Avanzado de Gestión de Inventario con IA
-Versión 2.2 - Adaptado para Chingon (Reporte Estructurado)
+Versión 2.3 - Reversión a Reporte en Markdown
 """
 import streamlit as st
 from PIL import Image
@@ -27,7 +27,7 @@ except ImportError as e:
 # --- CONFIGURACIÓN DE PÁGINA Y ESTILOS ---
 st.set_page_config(
     page_title="OSIRIS by SAVA & Chingon",
-    page_icon="https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true",
+    page_icon="[https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true](https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true)",
     layout="wide"
 )
 
@@ -104,7 +104,7 @@ def send_whatsapp_alert(message):
         st.error(f"Error al enviar alerta de Twilio: {e}", icon="🚨")
 
 # --- NAVEGACIÓN PRINCIPAL (SIDEBAR) ---
-st.sidebar.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", width=150)
+st.sidebar.image("[https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true](https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true)", width=150)
 st.sidebar.markdown('<h1 style="text-align: center; font-size: 2.2rem; margin-top: -20px;">OSIRIS</h1>', unsafe_allow_html=True)
 st.sidebar.markdown("<p style='text-align: center; margin-top: -15px;'>by <strong>SAVA</strong> for <strong>Chingon</strong></p>", unsafe_allow_html=True)
 
@@ -120,7 +120,8 @@ PAGES = {
     "🏢 Acerca de SAVA": "building"
 }
 for page_name, icon in PAGES.items():
-    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", use_container_width=True, type="primary" if st.session_state.page == page_name else "secondary"):
+    # Reemplazando 'use_container_width' con 'width'
+    if st.sidebar.button(f"{page_name}", help=page_name, key=f"nav_{page_name}", width='stretch', type="primary" if st.session_state.page == page_name else "secondary"):
         st.session_state.page = page_name
         # Reset specific states when changing pages if needed
         st.session_state.editing_item_id = None
@@ -142,7 +143,7 @@ if st.session_state.page == "🏠 Inicio":
     # Using columns for better layout control
     col_img, col_title = st.columns([1, 5])
     with col_img:
-        st.image("https://cdn-icons-png.flaticon.com/512/8128/8128087.png", width=120)
+        st.image("[https://cdn-icons-png.flaticon.com/512/8128/8128087.png](https://cdn-icons-png.flaticon.com/512/8128/8128087.png)", width=120)
     with col_title:
         st.markdown('<h1 class="main-header" style="text-align: left; margin-top: 20px;">Bienvenido a OSIRIS</h1>', unsafe_allow_html=True)
         st.subheader("La solución de gestión de inventario inteligente de SAVA para Chingon")
@@ -178,11 +179,11 @@ if st.session_state.page == "🏠 Inicio":
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Acciones Rápidas")
-        if st.button("🛰️ Usar Escáner USB", use_container_width=True):
+        if st.button("🛰️ Usar Escáner USB", width='stretch'):
              st.session_state.page = "🛰️ Escáner USB"; st.rerun()
-        if st.button("📝 Crear Nuevo Pedido", use_container_width=True):
+        if st.button("📝 Crear Nuevo Pedido", width='stretch'):
             st.session_state.page = "🛒 Pedidos"; st.rerun()
-        if st.button("➕ Añadir Artículo", use_container_width=True):
+        if st.button("➕ Añadir Artículo", width='stretch'):
             st.session_state.page = "📦 Inventario"; st.rerun()
 
     with col2:
@@ -222,7 +223,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
             with st.form("usb_inventory_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Código de Barras", key="usb_barcode_inv_input",
                                               help="Haz clic aquí antes de escanear.")
-                submitted = st.form_submit_button("Buscar / Registrar", use_container_width=True)
+                submitted = st.form_submit_button("Buscar / Registrar", width='stretch')
                 if submitted and barcode_input:
                     st.session_state.usb_scan_result = barcode_manager.handle_inventory_scan(barcode_input)
                     # No rerun here, let the result display below
@@ -251,7 +252,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                     new_quantity = st.number_input("Nueva Cantidad Total", min_value=0, value=item.get('quantity', 0), step=1)
                     new_price = st.number_input("Nuevo Precio de Venta ($)", min_value=0.0, value=item.get('sale_price', 0.0), format="%.2f")
 
-                    if st.form_submit_button("Actualizar Producto", type="primary", use_container_width=True):
+                    if st.form_submit_button("Actualizar Producto", type="primary", width='stretch'):
                         updated_data = item.copy()
                         # Ensure prices are floats and quantity is int
                         updated_data.update({
@@ -279,7 +280,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                     sale_price = st.number_input("Precio de Venta ($)", min_value=0.0, format="%.2f", value=0.0)
                     purchase_price = st.number_input("Precio de Compra ($)", min_value=0.0, format="%.2f", value=0.0)
 
-                    if st.form_submit_button("Guardar Nuevo Producto", type="primary", use_container_width=True):
+                    if st.form_submit_button("Guardar Nuevo Producto", type="primary", width='stretch'):
                         if name and quantity > 0:
                              # Ensure correct data types
                             data = {
@@ -305,7 +306,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
             st.subheader("Escanear Productos para Venta")
             with st.form("usb_sale_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Escanear Código de Producto", key="usb_barcode_sale_input")
-                submitted = st.form_submit_button("Añadir a la Venta", use_container_width=True)
+                submitted = st.form_submit_button("Añadir a la Venta", width='stretch')
                 if submitted and barcode_input:
                     updated_list, status_msg = barcode_manager.add_item_to_sale(barcode_input, st.session_state.usb_sale_items)
                     st.session_state.usb_sale_items = updated_list
@@ -343,7 +344,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                 st.markdown(f"### Total Venta: `${total_sale_price:,.2f}`")
 
                 c1, c2 = st.columns(2)
-                if c1.button("✅ Finalizar y Descontar Stock", type="primary", use_container_width=True):
+                if c1.button("✅ Finalizar y Descontar Stock", type="primary", width='stretch'):
                     sale_id = f"VentaDirecta-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}" # Use UTC
                     try:
                         success, msg, alerts = firebase.process_direct_sale(st.session_state.usb_sale_items, sale_id)
@@ -359,7 +360,7 @@ elif st.session_state.page == "🛰️ Escáner USB":
                         st.error(f"Error al procesar la venta: {sale_e}")
 
 
-                if c2.button("❌ Cancelar Venta", use_container_width=True):
+                if c2.button("❌ Cancelar Venta", width='stretch'):
                     st.session_state.usb_sale_items = [] # Clear sale items
                     st.toast("Venta cancelada.")
                     st.rerun() # Update UI
@@ -391,8 +392,8 @@ elif st.session_state.page == "📦 Inventario":
                     selected_supplier_name = st.selectbox("Proveedor", supplier_names, index=current_supplier_index)
 
                     c1, c2 = st.columns(2)
-                    save_pressed = c1.form_submit_button("Guardar Cambios", type="primary", use_container_width=True)
-                    cancel_pressed = c2.form_submit_button("Cancelar", use_container_width=True)
+                    save_pressed = c1.form_submit_button("Guardar Cambios", type="primary", width='stretch')
+                    cancel_pressed = c2.form_submit_button("Cancelar", width='stretch')
 
                     if save_pressed:
                         if name:
@@ -477,7 +478,7 @@ elif st.session_state.page == "📦 Inventario":
                     min_stock_alert = st.number_input("Umbral de Alerta", min_value=0, step=1, value=0)
                     selected_supplier_name = st.selectbox("Proveedor", supplier_names)
 
-                    if st.form_submit_button("Guardar Nuevo Artículo", type="primary", use_container_width=True):
+                    if st.form_submit_button("Guardar Nuevo Artículo", type="primary", width='stretch'):
                         if custom_id and name:
                              # Check if ID already exists before saving
                             if firebase.get_inventory_item_details(custom_id):
@@ -516,7 +517,7 @@ elif st.session_state.page == "👥 Proveedores":
             contact = st.text_input("Persona de Contacto")
             email = st.text_input("Email")
             phone = st.text_input("Teléfono")
-            if st.form_submit_button("Guardar", type="primary", use_container_width=True):
+            if st.form_submit_button("Guardar", type="primary", width='stretch'):
                 if name:
                     try:
                         firebase.add_supplier({
@@ -583,7 +584,7 @@ elif st.session_state.page == "🛒 Pedidos":
                     # Use a unique key including item ID for the number input
                     qty_to_add = st.number_input(f"Cantidad de '{selected_name}'", min_value=1, value=1, step=1, key=f"sel_qty_{item_id}")
 
-                    if st.button(f"Añadir {qty_to_add} al Pedido", use_container_width=True):
+                    if st.button(f"Añadir {qty_to_add} al Pedido", width='stretch'):
                         # Add item and handle potential errors or warnings
                         updated_order_items, status_msg = barcode_manager.add_item_to_order_list(item_to_add, st.session_state.order_items, qty_to_add)
                         st.session_state.order_items = updated_order_items
@@ -596,7 +597,7 @@ elif st.session_state.page == "🛒 Pedidos":
         elif add_method == "Escanear para Pedido":
              with st.form("order_scan_form", clear_on_submit=True):
                 barcode_input = st.text_input("Escanear Código de Producto", key="order_barcode_scan_input")
-                submitted = st.form_submit_button("Buscar y Añadir", use_container_width=True)
+                submitted = st.form_submit_button("Buscar y Añadir", width='stretch')
 
                 if submitted and barcode_input:
                     try:
@@ -704,7 +705,7 @@ elif st.session_state.page == "🛒 Pedidos":
             with st.form("order_form"):
                 title = st.text_input("Nombre del Pedido (opcional)", placeholder=default_title)
                 final_title = title if title else default_title
-                if st.form_submit_button("Crear Pedido", type="primary", use_container_width=True):
+                if st.form_submit_button("Crear Pedido", type="primary", width='stretch'):
                     if not st.session_state.order_items:
                         st.warning("No hay artículos en el pedido.")
                     else:
@@ -757,7 +758,7 @@ elif st.session_state.page == "🛒 Pedidos":
                     for item in order.get('ingredients', []):
                         st.write(f"- {item.get('name', 'N/A')} (x{item.get('quantity', 0)})")
                     c1, c2 = st.columns(2)
-                    if c1.button("✅ Completar Pedido", key=f"comp_{order_id}", type="primary", use_container_width=True):
+                    if c1.button("✅ Completar Pedido", key=f"comp_{order_id}", type="primary", width='stretch'):
                         try:
                             success, msg, alerts = firebase.complete_order(order_id)
                             if success:
@@ -770,7 +771,7 @@ elif st.session_state.page == "🛒 Pedidos":
                         except Exception as complete_e:
                              st.error(f"Error al completar pedido: {complete_e}")
 
-                    if c2.button("❌ Cancelar Pedido", key=f"canc_{order_id}", use_container_width=True):
+                    if c2.button("❌ Cancelar Pedido", key=f"canc_{order_id}", width='stretch'):
                         try:
                              firebase.cancel_order(order_id)
                              st.toast(f"Pedido '{order.get('title', 'N/A')}' cancelado.")
@@ -977,7 +978,7 @@ elif st.session_state.page == "📊 Analítica":
 elif st.session_state.page == "📈 Reporte Diario":
     st.info("Genera un reporte de ventas y recomendaciones para el día de hoy utilizando IA.")
 
-    if st.button("🚀 Generar Reporte de Hoy", type="primary", use_container_width=True):
+    if st.button("🚀 Generar Reporte de Hoy", type="primary", width='stretch'):
         with st.spinner("🧠 La IA está analizando las ventas de hoy y preparando tu reporte..."):
             try:
                 today_utc = datetime.now(timezone.utc).date()
@@ -986,59 +987,9 @@ elif st.session_state.page == "📈 Reporte Diario":
 
                 completed_orders_today = firebase.get_orders_in_date_range(start_of_day, end_of_day)
 
-                # Request structured data (JSON string) from Gemini
-                report_json_str = gemini.generate_daily_report(completed_orders_today)
-                try:
-                    # Attempt to parse the JSON string
-                    report_data = json.loads(report_json_str)
-
-                    # Check if it's the error structure
-                    if isinstance(report_data, dict) and "error" in report_data:
-                        st.error(f"Error de la IA: {report_data.get('error', 'Desconocido')}")
-                        raw = report_data.get('raw_response')
-                        if raw:
-                            st.caption(f"Respuesta cruda: {raw}")
-                    # Check for expected keys
-                    elif all(k in report_data for k in ['resumen_ejecutivo', 'observaciones_clave', 'recomendaciones_estrategicas', 'elaborado_por']):
-                         # Build the report using Streamlit components for better formatting
-                        st.markdown("### 📈 Reporte de Desempeño Diario")
-                        st.markdown("---")
-
-                        st.subheader("Resumen Ejecutivo")
-                        st.write(report_data.get('resumen_ejecutivo', "No disponible"))
-                        st.markdown("---")
-
-                        st.subheader("Observaciones Clave")
-                        observaciones = report_data.get('observaciones_clave', [])
-                        if isinstance(observaciones, list) and observaciones:
-                            for obs in observaciones:
-                                st.markdown(f"- {obs}")
-                        else:
-                            st.info("No hay observaciones clave disponibles.")
-                        st.markdown("---")
-
-                        st.subheader("Recomendaciones Estratégicas")
-                        recomendaciones = report_data.get('recomendaciones_estrategicas', [])
-                        if isinstance(recomendaciones, list) and recomendaciones:
-                            for rec in recomendaciones:
-                                st.markdown(f"- {rec}")
-                        else:
-                            st.info("No hay recomendaciones estratégicas disponibles.")
-                        st.markdown("---")
-
-                        # Display signature information
-                        elaborado_por = report_data.get('elaborado_por', {})
-                        nombre = elaborado_por.get('nombre', 'N/A')
-                        cargo = elaborado_por.get('cargo', 'N/A')
-                        st.markdown(f"<p style='text-align: right;'><strong>Elaborado por:</strong><br>{nombre}<br>{cargo}</p>", unsafe_allow_html=True)
-
-                    else:
-                         st.error("La IA devolvió una respuesta inesperada.")
-                         st.code(report_json_str, language='json')
-
-                except json.JSONDecodeError:
-                     st.error("Error: La IA no devolvió un formato JSON válido.")
-                     st.code(report_json_str, language='text')
+                # The logic for handling the report is now simplified to just display markdown
+                report_markdown = gemini.generate_daily_report(completed_orders_today)
+                st.markdown(report_markdown, unsafe_allow_html=True)
 
             except Exception as e:
                 st.error(f"Ocurrió un error general al generar el reporte: {e}")
