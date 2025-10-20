@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 HI-DRIVE: Sistema Avanzado de Gestión de Inventario con IA
-Versión 2.0
+Versión 2.1 - Adaptado para Chingon
 """
 import streamlit as st
 from PIL import Image
@@ -10,18 +10,14 @@ import plotly.express as px
 import json
 from datetime import datetime, timedelta, timezone
 import numpy as np
-import cv2
 
 # --- Importaciones de utilidades y modelos ---
 try:
-    from pyzbar.pyzbar import decode
-    from skimage.filters import threshold_local
     from firebase_utils import FirebaseManager
-    from gemini_utils import GeminiUtils
     from barcode_manager import BarcodeManager 
-    from ultralytics import YOLO
     from statsmodels.tsa.holtwinters import ExponentialSmoothing
     from twilio.rest import Client
+    from gemini_text_utils import GeminiTextUtils # Import new text generation utility
     IS_TWILIO_AVAILABLE = True
 except ImportError as e:
     st.error(f"Error de importación: {e}. Asegúrate de que todas las dependencias estén instaladas.")
@@ -30,7 +26,7 @@ except ImportError as e:
 
 # --- CONFIGURACIÓN DE PÁGINA Y ESTILOS ---
 st.set_page_config(
-    page_title="OSIRIS by SAVA",
+    page_title="OSIRIS by SAVA & Chingon",
     page_icon="https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true",
     layout="wide"
 )
@@ -46,51 +42,32 @@ def load_css():
 
 load_css()
 
-# --- LECTOR DE CÓDIGOS DE BARRAS POTENCIADO (PARA CÁMARA) ---
-def enhanced_barcode_reader(pil_image):
-    try:
-        image_cv = np.array(pil_image.convert('RGB'))
-        gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
-        block_size = 41
-        local_thresh = threshold_local(gray, block_size, offset=10)
-        binary_adaptive = gray > local_thresh
-        processed_image = Image.fromarray((binary_adaptive * 255).astype(np.uint8))
-        decoded_objects = decode(processed_image)
-        if not decoded_objects:
-            decoded_objects = decode(pil_image)
-        return decoded_objects
-    except Exception as e:
-        st.error(f"Error procesando imagen para escáner: {e}")
-        return []
-
-
 # --- INICIALIZACIÓN DE SERVICIOS (CACHED) ---
 @st.cache_resource
 def initialize_services():
     try:
-        yolo_model = YOLO('yolov8m.pt')
         firebase_handler = FirebaseManager()
-        gemini_handler = GeminiUtils()
         barcode_handler = BarcodeManager(firebase_handler)
+        gemini_text_handler = GeminiTextUtils()
         
         twilio_client = None
         if IS_TWILIO_AVAILABLE and all(k in st.secrets for k in ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"]):
             twilio_client = Client(st.secrets["TWILIO_ACCOUNT_SID"], st.secrets["TWILIO_AUTH_TOKEN"])
             
-        return yolo_model, firebase_handler, gemini_handler, twilio_client, barcode_handler
+        return firebase_handler, gemini_text_handler, twilio_client, barcode_handler
     except Exception as e:
         st.error(f"**Error Crítico de Inicialización:** {e}")
-        return None, None, None, None, None
+        return None, None, None, None
 
-yolo, firebase, gemini, twilio_client, barcode_manager = initialize_services()
+firebase, gemini_text, twilio_client, barcode_manager = initialize_services()
 
-if not all([yolo, firebase, gemini, barcode_manager]):
+if not all([firebase, gemini_text, barcode_manager]):
     st.stop()
 
 # --- Funciones de Estado de Sesión ---
 def init_session_state():
     defaults = {
-        'page': "🏠 Inicio", 'order_items': [], 'analysis_results': None,
+        'page': "🏠 Inicio", 'order_items': [],
         'editing_item_id': None, 'scanned_item_data': None,
         'usb_scan_result': None, 'usb_sale_items': []
     }
@@ -115,33 +92,31 @@ def send_whatsapp_alert(message):
         st.error(f"Error de Twilio: {e}", icon="🚨")
 
 # --- NAVEGACIÓN PRINCIPAL (SIDEBAR) ---
-# --- MEJORA DE INTERFAZ: Sidebar con logo y título centrado/más grande ---
 st.sidebar.image("https://github.com/GIUSEPPESAN21/sava-assets/blob/main/logo_sava.png?raw=true", use_container_width=True)
 st.sidebar.markdown('<h1 style="text-align: center; font-size: 2.2rem; margin-top: -20px;">OSIRIS</h1>', unsafe_allow_html=True)
-st.sidebar.markdown("<p style='text-align: center; margin-top: -15px;'>by <strong>SAVA</strong></p>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='text-align: center; margin-top: -15px;'>by <strong>SAVA</strong> for <strong>Chingon</strong></p>", unsafe_allow_html=True)
 
 
 PAGES = {
     "🏠 Inicio": "house", 
-    "📸 Análisis IA": "camera-reels", 
     "🛰️ Escáner USB": "upc-scan",
     "📦 Inventario": "box-seam",
     "👥 Proveedores": "people", 
     "🛒 Pedidos": "cart4", 
     "📊 Analítica": "graph-up-arrow",
+    "📈 Reporte Diario": "clipboard-data",
     "🏢 Acerca de SAVA": "building"
 }
 for page_name, icon in PAGES.items():
     if st.sidebar.button(f"{page_name}", use_container_width=True, type="primary" if st.session_state.page == page_name else "secondary"):
         st.session_state.page = page_name
-        st.session_state.analysis_results = None
         st.session_state.editing_item_id = None
         st.session_state.scanned_item_data = None
         st.session_state.usb_scan_result = None
         st.rerun()
 
 st.sidebar.markdown("---")
-st.sidebar.info("© 2025 SAVA. Todos los derechos reservados.")
+st.sidebar.info("© 2025 SAVA & Chingon. Todos los derechos reservados.")
 
 # --- RENDERIZADO DE PÁGINAS ---
 if st.session_state.page != "🏠 Inicio":
@@ -153,7 +128,7 @@ if st.session_state.page != "🏠 Inicio":
 if st.session_state.page == "🏠 Inicio":
     st.image("https://cdn-icons-png.flaticon.com/512/8128/8128087.png", width=120)
     st.markdown('<h1 class="main-header" style="text-align: left;">Bienvenido a OSIRIS</h1>', unsafe_allow_html=True)
-    st.subheader("La solución de gestión de inventario inteligente de SAVA")
+    st.subheader("La solución de gestión de inventario inteligente de SAVA para Chingon")
     st.markdown("""
     **OSIRIS** transforma la manera en que gestionas tu inventario, combinando inteligencia artificial de vanguardia
     con una interfaz intuitiva para darte control, precisión y eficiencia sin precedentes.
@@ -195,110 +170,6 @@ if st.session_state.page == "🏠 Inicio":
             with st.container(height=200):
                 for item in low_stock_items:
                     st.warning(f"**{item['name']}**: {item['quantity']} unidades restantes (Umbral: {item['min_stock_alert']})")
-
-elif st.session_state.page == "📸 Análisis IA":
-    st.info("Usa la detección de objetos para un análisis detallado o el escáner de códigos para una gestión rápida de inventario.")
-    source_options = ["🧠 Detección de Objetos", "║█║ Escáner de Código"]
-    img_source = st.selectbox("Selecciona el modo de análisis:", source_options)
-    
-    if img_source == "║█║ Escáner de Código":
-        st.subheader("Gestión de Inventario por Código")
-        img_buffer = st.camera_input("Apunta la cámara al código de barras", key="scanner_ia_page")
-
-        if img_buffer:
-            with st.spinner("Buscando códigos..."):
-                pil_image = Image.open(img_buffer)
-                decoded_objects = enhanced_barcode_reader(pil_image)
-                if decoded_objects:
-                    code_data = decoded_objects[0].data.decode('utf-8')
-                    item = firebase.get_inventory_item_details(code_data)
-                    st.session_state.scanned_item_data = {'code': code_data, 'item': item}
-                else:
-                    st.warning("No se encontraron códigos de barras o QR.")
-                    st.session_state.scanned_item_data = None
-        
-        if st.session_state.scanned_item_data:
-            scan_data = st.session_state.scanned_item_data
-            item, code = scan_data['item'], scan_data['code']
-            st.success(f"Último código escaneado: **{code}**")
-            if item:
-                st.subheader("✔️ Artículo Encontrado: ¿Qué deseas hacer?")
-                st.markdown(f"**Nombre:** {item.get('name', 'N/A')} | **Stock Actual:** {item.get('quantity', 0)}")
-                if st.button("✏️ Editar Detalles Completos", help="Ir a la página de inventario para editar todos los campos de este producto."):
-                    st.session_state.editing_item_id = item['id']
-                    st.session_state.page = "📦 Inventario"
-                    st.rerun()
-            else:
-                st.subheader("➕ Artículo Nuevo: Registrar en Inventario")
-                st.info(f"El código **{code}** no está en la base de datos. Por favor, completa los detalles.")
-                with st.form("create_from_scan_form"):
-                    suppliers = firebase.get_all_suppliers()
-                    supplier_map = {s['name']: s['id'] for s in suppliers}
-                    name = st.text_input("Nombre del Artículo")
-                    quantity = st.number_input("Cantidad Inicial", min_value=1, step=1)
-                    sale_price = st.number_input("Precio de Venta ($)", min_value=0.0, format="%.2f")
-                    purchase_price = st.number_input("Precio de Compra ($)", min_value=0.0, format="%.2f")
-                    min_stock_alert = st.number_input("Umbral de Alerta", min_value=0, step=1)
-                    selected_supplier_name = st.selectbox("Proveedor", [""] + list(supplier_map.keys()))
-                    if st.form_submit_button("Guardar Nuevo Artículo", type="primary"):
-                        if name and quantity > 0:
-                            data = {"name": name, "quantity": quantity, "sale_price": sale_price,"purchase_price": purchase_price, "min_stock_alert": min_stock_alert,"supplier_id": supplier_map.get(selected_supplier_name),"supplier_name": selected_supplier_name, "updated_at": datetime.now().isoformat()}
-                            firebase.save_inventory_item(data, code, is_new=True)
-                            st.success(f"Nuevo artículo '{name}' guardado con éxito.")
-                            st.session_state.scanned_item_data = None
-                            st.rerun()
-                        else:
-                            st.warning("El nombre y la cantidad son obligatorios.")
-    elif img_source == "🧠 Detección de Objetos":
-        img_buffer = st.camera_input("Apunta la cámara al objetivo", key="detector_ia_page")
-        if img_buffer:
-            pil_image = Image.open(img_buffer)
-            with st.spinner("Detectando objetos con IA Local..."):
-                results = yolo(pil_image)
-            st.image(results[0].plot(), caption="Objetos detectados por YOLO.", use_column_width=True)
-            detections = results[0]
-            if detections.boxes:
-                st.subheader("Selecciona un objeto para analizarlo en detalle:")
-                cols = st.columns(min(len(detections.boxes), 4))
-                for i, box in enumerate(detections.boxes):
-                    class_name = detections.names[box.cls[0].item()]
-                    if cols[i % 4].button(f"Analizar '{class_name}' #{i+1}", use_container_width=True, key=f"analyze_{i}"):
-                        with st.spinner("🤖 Gemini está analizando el recorte..."):
-                            coords = box.xyxy[0].cpu().numpy().astype(int)
-                            analysis_json = gemini.analyze_image(pil_image.crop(tuple(coords)), class_name)
-                            st.session_state.analysis_results = json.loads(analysis_json)
-                            st.session_state.scanned_item_data = None
-                            st.rerun()
-            else:
-                st.warning("No se detectaron objetos conocidos en la imagen.")
-    if st.session_state.analysis_results and "error" not in st.session_state.analysis_results:
-        res = st.session_state.analysis_results
-        st.subheader("✔️ Resultado del Análisis de Gemini")
-        st.markdown(f"""- **Producto:** {res.get('elemento_identificado', 'N/A')}\n- **Marca/Modelo:** {res.get('marca_modelo_sugerido', 'N/A')}""")
-        st.subheader("Vincular con Base de Datos")
-        action = st.radio("Elige una acción:", ("Crear nuevo artículo", "Vincular a artículo existente"))
-        all_items = firebase.get_all_inventory_items()
-        item_map = {item['name']: item['id'] for item in all_items}
-        if action == "Crear nuevo artículo":
-            with st.form("create_from_ia"):
-                new_id = st.text_input("ID / SKU único", value=res.get('marca_modelo_sugerido', '').replace(" ", "-"))
-                new_name = st.text_input("Nombre del artículo", value=res.get('elemento_identificado'))
-                if st.form_submit_button("Crear Artículo", type="primary"):
-                    if new_id and new_name and not firebase.get_inventory_item_details(new_id):
-                        data = {"name": new_name, "analisis_ia": res}
-                        firebase.save_inventory_item(data, new_id, is_new=True)
-                        st.success(f"Artículo '{new_name}' creado.")
-                    else:
-                        st.error("ID no válido o ya existente.")
-        elif action == "Vincular a artículo existente":
-            with st.form("link_from_ia"):
-                selected_item_name = st.selectbox("Selecciona el artículo a vincular", options=item_map.keys())
-                if st.form_submit_button("Vincular Información", type="primary"):
-                    item_id = item_map.get(selected_item_name)
-                    if item_id:
-                        data = {"analisis_ia": res, "updated_at": datetime.now().isoformat()}
-                        firebase.save_inventory_item(data, item_id, is_new=False, details="Vinculación de datos de IA.")
-                        st.success(f"Información vinculada a '{selected_item_name}'.")
 
 elif st.session_state.page == "🛰️ Escáner USB":
     st.info("Conecta tu lector de códigos de barras USB. Haz clic en el campo de texto y comienza a escanear.")
@@ -742,6 +613,28 @@ elif st.session_state.page == "📊 Analítica":
                         except Exception as e:
                             st.error(f"No se pudo generar la predicción: {e}")
 
+elif st.session_state.page == "📈 Reporte Diario":
+    st.info("Genera un reporte de ventas y recomendaciones para el día de hoy utilizando IA.")
+    
+    if st.button("🚀 Generar Reporte de Hoy", type="primary", use_container_width=True):
+        with st.spinner("🧠 La IA está analizando las ventas de hoy y preparando tu reporte..."):
+            try:
+                today_utc = datetime.now(timezone.utc).date()
+                start_of_day = datetime(today_utc.year, today_utc.month, today_utc.day, tzinfo=timezone.utc)
+                end_of_day = start_of_day + timedelta(days=1)
+
+                completed_orders_today = firebase.get_orders_in_date_range(start_of_day, end_of_day)
+
+                if not completed_orders_today:
+                    st.warning("No hay ventas completadas hoy para generar un reporte.")
+                else:
+                    report = gemini_text.generate_daily_report(completed_orders_today)
+                    st.markdown(report)
+
+            except Exception as e:
+                st.error(f"Ocurrió un error al generar el reporte: {e}")
+
+
 elif st.session_state.page == "🏢 Acerca de SAVA":
     st.image("https://cdn-icons-png.flaticon.com/512/8128/8128087.png", width=100)
     st.title("Sobre SAVA SOFTWARE")
@@ -788,4 +681,3 @@ elif st.session_state.page == "🏢 Acerca de SAVA":
         st.info("**Jaime Eduardo Aragon Campo**\n\n*Director de Operaciones*")
     with c3:
         st.info("**Joseph Javier Sanchez Acuña**\n\n*Director de Proyecto*")
-
