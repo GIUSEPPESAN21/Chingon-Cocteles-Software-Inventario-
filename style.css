@@ -1,0 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* --- Variables Globales --- */
+:root {
+--primary-color: #2a9d8f;
+--secondary-color: #e9c46a;
+--danger-color: #e76f51;
+--light-color: #f8f9fa;
+--dark-color: #264653;
+--text-color: #333;
+--border-radius: 0.75rem;
+--box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* --- Estilos Generales --- */
+body, .stApp {
+font-family: 'Inter', sans-serif;
+background-color: var(--light-color);
+color: var(--text-color);
+}
+
+/* --- Título Principal --- */
+.main-header {
+font-size: 2.5rem;
+font-weight: 700;
+color: var(--dark-color);
+text-align: center;
+margin-bottom: 1rem;
+}
+
+/* --- Sidebar --- */
+.st-emotion-cache-16txtl3 {
+background-color: #ffffff;
+border-right: 1px solid #e0e0e0;
+}
+.st-emotion-cache-16txtl3 .stButton > button {
+border-radius: var(--border-radius);
+font-weight: 600;
+transition: all 0.2s ease;
+}
+
+/* --- Métricas del Dashboard --- */
+.stMetric {
+background-color: #ffffff;
+padding: 1.5rem;
+border-radius: var(--border-radius);
+box-shadow: var(--box-shadow);
+border-left: 5px solid var(--primary-color);
+}
+
+/* --- Contenedores y Expanders --- */
+.stExpander, .st-emotion-cache-1r6slb0 {
+background-color: #ffffff;
+border-radius: var(--border-radius) !important;
+border: 1px solid #e0e0e0 !important;
+box-shadow: none !important;
+margin-bottom: 1rem;
+}
+.st-emotion-cache-1r6slb0 p {
+font-weight: 600;
+color: var(--dark-color);
+}
+
+/* --- Botones --- */
+.stButton > button {
+border-radius: var(--border-radius);
+padding: 10px 22px;
+font-weight: 600;
+transition: all 0.2s ease;
+border: none;
+}
+.stButton > button[kind="primary"] {
+background-color: var(--primary-color);
+color: white;
+}
+.stButton > button[kind="primary"]:hover {
+transform: translateY(-2px);
+box-shadow: 0 4px 14px rgba(42, 157, 143, 0.4);
+}
+.stButton > button[kind="secondary"] {
+background-color: #ffffff;
+color: var(--text-color);
+border: 1px solid #ddd;
+}
+
+/* --- Formularios y Entradas de Texto --- /
+.st-emotion-cache-s492s5 { / Contenedor de formulario */
+background-color: #ffffff;
+padding: 1.5rem;
+border-radius: var(--border-radius);
+border: 1px solid #e0e0e0;
+}
